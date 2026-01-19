@@ -6,6 +6,7 @@ var page_size: int = 10
 var row_height: int = 240 # Default height
 const RowScene = preload("res://components/Row.tscn")
 const ToastScene = preload("res://components/Toast.tscn")
+const WelcomeScene = preload("res://components/WelcomeScreen.tscn")
 
 # --- UI NODES ---
 @onready var project_select: OptionButton = %ProjectSelect
@@ -47,7 +48,6 @@ func _ready() -> void:
 	if saved_settings.has("row_height"):
 		row_height = int(saved_settings["row_height"])
 	
-	# Setup Focus/Background clicking
 	background.mouse_filter = Control.MOUSE_FILTER_STOP
 	background.gui_input.connect(_on_background_clicked)
 	scroll_container.gui_input.connect(_on_background_clicked)
@@ -55,18 +55,19 @@ func _ready() -> void:
 	# Wait for layout
 	await get_tree().process_frame
 	
-	# Initial Scan
-	_scan_and_populate_projects()
+	settings_btn.pressed.connect(_open_settings)
+	settings_dialog.settings_changed.connect(_on_settings_changed)
+	settings_dialog.library_path_changed.connect(_on_library_path_changed)
 	
+	if project_manager.is_fresh_install:
+		_show_welcome_screen()
+	else:
+		_scan_and_populate_projects()
+		
 	# Listen for resize logic
 	get_tree().root.size_changed.connect(_on_window_resized)
 	%ResizeTimer.timeout.connect(_update_ui)
 	%SearchTimer.timeout.connect(_perform_search)
-	
-	# CONNECT SETTINGS
-	settings_btn.pressed.connect(_open_settings)
-	settings_dialog.settings_changed.connect(_on_settings_changed)
-	settings_dialog.library_path_changed.connect(_on_library_path_changed)
 	
 func _open_settings() -> void:
 	settings_dialog.open(page_size, row_height)
@@ -179,6 +180,34 @@ func _on_project_data_loaded() -> void:
 		
 		_calculate_pagination()
 		_update_ui()
+		
+func _show_welcome_screen() -> void:
+	var welcome = WelcomeScene.instantiate()
+	# Add it to the highest layer so it covers everything
+	%ToastContainer.get_parent().add_child(welcome)
+	welcome.setup_completed.connect(_on_welcome_completed.bind(welcome))
+
+func _on_welcome_completed(selected_path: String, welcome_instance: Node) -> void:
+	# 1. Remove the screen
+	welcome_instance.queue_free()
+	
+	# 2. Handle the choice
+	if selected_path != "":
+		# User selected "Portable" or "Custom"
+		# This function in ProjectManager saves the bootstrap AND creates the folders
+		project_manager.update_library_path(selected_path)
+		
+		# Since we just created it, it's technically no longer a "fresh install" state
+		# for the purpose of logic, though we don't strictly need to toggle the bool back.
+	else:
+		# User selected "Skip"
+		# We do nothing. ProjectManager has a default path in memory, 
+		# but the folders on disk (likely) don't exist. 
+		# _scan_and_populate_projects will just find 0 projects.
+		pass
+
+	# 3. Finally, start the app
+	_scan_and_populate_projects()
 
 # --- FILE OPERATION HANDLERS ---
 

@@ -12,7 +12,7 @@ signal toast_requested(message: String)
 var current_project_name: String = ""
 var current_dataset: Dictionary = {} 
 var current_columns: Array[String] = []
-
+var is_fresh_install: bool = false
 
 # --- PATHS ---
 var _column_path_map: Dictionary = {}
@@ -25,7 +25,8 @@ const CONFIG_FILENAME = "dolina_dataset_config.json"
 func _ready() -> void:
 	_setup_paths()
 	# Optional: Create folders immediately on ready
-	_ensure_directories_exist()
+	if not is_fresh_install:
+		_ensure_directories_exist()
 
 # --- INITIALIZATION ---
 
@@ -51,6 +52,7 @@ func _setup_paths() -> void:
 
 func _load_library_path_from_bootstrap(default_val: String) -> String:
 	if not FileAccess.file_exists(BOOTSTRAP_FILE):
+		is_fresh_install = true
 		return default_val
 		
 	var f = FileAccess.open(BOOTSTRAP_FILE, FileAccess.READ)

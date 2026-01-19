@@ -1,5 +1,3 @@
-# components/settings_dialog.gd
-
 class_name SettingsDialog
 extends AcceptDialog
 

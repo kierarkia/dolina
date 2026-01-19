@@ -4,23 +4,10 @@
 [ext_resource type="Script" uid="uid://badu0bax2jj71" path="res://main/main.gd" id="1_qv31u"]
 [ext_resource type="Texture2D" uid="uid://yp7p7sxvjkta" path="res://assets/dolina_logo.svg" id="2_5kcm4"]
 [ext_resource type="PackedScene" uid="uid://cofi4ghat8ymt" path="res://components/ImageViewer.tscn" id="2_wbnyf"]
+[ext_resource type="Texture2D" uid="uid://bqlw5t28osebh" path="res://assets/settings_icon.svg" id="4_0h8po"]
 [ext_resource type="PackedScene" uid="uid://c58bmeeukos2g" path="res://components/SettingsDialog.tscn" id="4_o80qs"]
 [ext_resource type="PackedScene" uid="uid://bqpxyt5nyhpav" path="res://components/SafetyDialog.tscn" id="5_tv7ag"]
 [ext_resource type="Script" uid="uid://ck0mkthqv2w5j" path="res://scripts/project_manager.gd" id="6_qtrhv"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_o80qs"]
-content_margin_left = 12.0
-content_margin_right = 12.0
-bg_color = Color(0.101960786, 0.101960786, 0.101960786, 0.78431374)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.1764706, 0.23137255, 0.20392157, 1)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_right = 3
-corner_radius_bottom_left = 3
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -50,14 +37,13 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 20
+theme_override_constants/margin_top = 5
 theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 20
 
 [node name="VBox" type="VBoxContainer" parent="MarginContainer"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 15
+theme_override_constants/separation = 5
 
 [node name="Header" type="HBoxContainer" parent="MarginContainer/VBox"]
 layout_mode = 2
@@ -84,6 +70,48 @@ custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 text = "Refresh ↻"
 
+[node name="MiddleExpandSpacer" type="Control" parent="MarginContainer/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TopRightHBox" type="HBoxContainer" parent="MarginContainer/VBox/Header"]
+layout_mode = 2
+
+[node name="PaginationPanel" type="PanelContainer" parent="MarginContainer/VBox/Header/TopRightHBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="PaginationHBox" type="HBoxContainer" parent="MarginContainer/VBox/Header/TopRightHBox/PaginationPanel"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="PrevBtn" type="Button" parent="MarginContainer/VBox/Header/TopRightHBox/PaginationPanel/PaginationHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "◀"
+
+[node name="PageInput" type="LineEdit" parent="MarginContainer/VBox/Header/TopRightHBox/PaginationPanel/PaginationHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+alignment = 1
+
+[node name="TotalLabel" type="Label" parent="MarginContainer/VBox/Header/TopRightHBox/PaginationPanel/PaginationHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "/ 1"
+
+[node name="NextBtn" type="Button" parent="MarginContainer/VBox/Header/TopRightHBox/PaginationPanel/PaginationHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "▶"
+
+[node name="SettingsBtn" type="Button" parent="MarginContainer/VBox/Header/TopRightHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+icon = ExtResource("4_0h8po")
+
 [node name="HSeparator" type="HSeparator" parent="MarginContainer/VBox"]
 layout_mode = 2
 mouse_filter = 2
@@ -101,55 +129,6 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
-
-[node name="TopRightHBox" type="HBoxContainer" parent="."]
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -224.0
-offset_top = 12.0
-offset_right = -12.0
-offset_bottom = 66.0
-grow_horizontal = 0
-theme_override_constants/separation = 9
-
-[node name="PaginationPanel" type="PanelContainer" parent="TopRightHBox"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="PaginationHBox" type="HBoxContainer" parent="TopRightHBox/PaginationPanel"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="PrevBtn" type="Button" parent="TopRightHBox/PaginationPanel/PaginationHBox"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-text = "◀"
-
-[node name="PageInput" type="LineEdit" parent="TopRightHBox/PaginationPanel/PaginationHBox"]
-unique_name_in_owner = true
-layout_mode = 2
-alignment = 1
-
-[node name="TotalLabel" type="Label" parent="TopRightHBox/PaginationPanel/PaginationHBox"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "/ 1"
-
-[node name="NextBtn" type="Button" parent="TopRightHBox/PaginationPanel/PaginationHBox"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-text = "▶"
-
-[node name="SettingsBtn" type="Button" parent="TopRightHBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 36
-theme_override_styles/normal = SubResource("StyleBoxFlat_o80qs")
-text = "⚙"
 
 [node name="ToastLayer" type="Control" parent="."]
 layout_mode = 1
@@ -190,7 +169,7 @@ unique_name_in_owner = true
 
 [node name="ResizeTimer" type="Timer" parent="."]
 unique_name_in_owner = true
-wait_time = 0.2
+wait_time = 0.25
 one_shot = true
 
 [node name="SearchTimer" type="Timer" parent="."]

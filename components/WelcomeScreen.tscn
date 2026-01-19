@@ -1,0 +1,84 @@
+[gd_scene load_steps=4 format=3 uid="uid://bmwgje6q18i1h"]
+
+[ext_resource type="Texture2D" uid="uid://yp7p7sxvjkta" path="res://assets/dolina_logo.svg" id="1_8d60s"]
+[ext_resource type="Theme" uid="uid://duyeylfni0bvn" path="res://assets/DolinaTheme.tres" id="1_870gu"]
+[ext_resource type="Script" uid="uid://c0eims0vwei0" path="res://components/welcome_screen.gd" id="1_cswnj"]
+
+[node name="WelcomeScreen" type="ColorRect"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5882353)
+script = ExtResource("1_cswnj")
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="CenterContainer"]
+layout_mode = 2
+theme = ExtResource("1_870gu")
+
+[node name="Margin" type="MarginContainer" parent="CenterContainer/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="CenterContainer/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Logo" type="TextureRect" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+texture = ExtResource("1_8d60s")
+expand_mode = 5
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Welcome to Dolina!"
+
+[node name="Desc" type="Label" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Choose where to store your datasets..."
+
+[node name="HSeparator" type="HSeparator" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="BtnPortable" type="Button" parent="CenterContainer/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Portable Folder
+(Next to Executable)"
+
+[node name="BtnCustom" type="Button" parent="CenterContainer/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Custom Path
+(Select Your Own Folder)"
+
+[node name="BtnSkip" type="Button" parent="CenterContainer/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Skip / Configure Later
+(Settings in Top Right Corner)"
+
+[node name="DirDialog" type="FileDialog" parent="."]
+unique_name_in_owner = true
+title = "Open a Directory"
+file_mode = 2
+access = 2
