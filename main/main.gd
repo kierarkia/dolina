@@ -298,72 +298,109 @@ func _calculate_pagination() -> void:
 
 func _update_ui() -> void:
 	var col_width = _calculate_column_width()
-	for child in column_headers.get_children(): child.queue_free()
 	
-	# ID Column
+	# Clear existing headers
+	for child in column_headers.get_children():
+		child.queue_free()
+	
+	# --- 1. ID COLUMN (Fixed Left) ---
+	
+	# Create a VBox to stack "ID" label above search
+	var id_vbox = VBoxContainer.new()
+	id_vbox.custom_minimum_size.x = 150
+	id_vbox.alignment = BoxContainer.ALIGNMENT_END # Push content to bottom if needed
+	
+	# ID Label
+	var id_label = Label.new()
+	id_label.text = "ID"
+	id_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Apply your theme color for consistency
+	id_label.label_settings = LabelSettings.new()
+	id_label.label_settings.font_color = Color("41f095")
+	id_vbox.add_child(id_label)
+	
+	# ID Search Input
 	var id_search = LineEdit.new()
-	id_search.placeholder_text = "Search..."
-	id_search.custom_minimum_size.x = 150 
-	id_search.alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	if search_filters.has("ID"): id_search.text = search_filters["ID"]
-	id_search.text_changed.connect(_on_search_text_changed.bind("ID"))
-	column_headers.add_child(id_search)
+	id_search.placeholder_text = "Search ID..."
+	id_search.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if search_filters.has("ID"): 
+		id_search.text = search_filters["ID"]
 	
+	# Connect signal
+	id_search.text_changed.connect(_on_search_text_changed.bind("ID"))
+	
+	id_vbox.add_child(id_search)
+	column_headers.add_child(id_vbox)
+	
+	# Separator after ID
 	var sep1 = VSeparator.new()
 	sep1.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column_headers.add_child(sep1)
 
-	# Content Columns
+	# --- 2. CONTENT COLUMNS (Dynamic) ---
+	
 	for col in project_manager.current_columns:
-		var header_hbox = HBoxContainer.new()
-		header_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		header_hbox.custom_minimum_size.x = col_width
-		header_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		# Main container for the column header (Vertical Stack)
+		var col_container = VBoxContainer.new()
+		col_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col_container.custom_minimum_size.x = col_width
+		# Ensure the VBox fills the available height in the header bar
+		col_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		
-		# Column Name
+		# --- ROW 1: TITLE ---
 		var label = Label.new()
 		label.text = col.to_upper()
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.label_settings = LabelSettings.new()
 		label.label_settings.font_color = Color("41f095")
-		header_hbox.add_child(label)
+		col_container.add_child(label)
 		
-		# Open Folder Button
+		# --- ROW 2: CONTROLS (Buttons + Search) ---
+		var controls_hbox = HBoxContainer.new()
+		controls_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		controls_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		
+		# 1. Open Folder Button
 		var folder_btn = Button.new()
-		folder_btn.text = "📂" # Simple unicode folder icon
+		folder_btn.text = "📂"
 		folder_btn.tooltip_text = "Open in File Explorer"
 		folder_btn.focus_mode = Control.FOCUS_NONE
 		folder_btn.flat = true
 		folder_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		# Connect to OS.shell_open
 		folder_btn.pressed.connect(func(): 
 			var path = project_manager.get_column_path(col)
 			if path: 
-				# Globalize path ensures it works for "res://" paths in editor mode too
 				OS.shell_open(ProjectSettings.globalize_path(path))
 		)
-		header_hbox.add_child(folder_btn)
+		controls_hbox.add_child(folder_btn)
 		
-		# 3. Fill Button (Existing)
+		# 2. Fill Button
 		var flash_btn = Button.new()
-		flash_btn.text = "FILL" 
+		flash_btn.text = "📄" 
 		flash_btn.tooltip_text = "Bulk populate empty rows in this column with .txt files" 
 		flash_btn.focus_mode = Control.FOCUS_NONE
 		flash_btn.flat = true
 		flash_btn.modulate = Color("41f095") 
 		flash_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		flash_btn.pressed.connect(_handle_bulk_populate.bind(col))
-		header_hbox.add_child(flash_btn)
+		controls_hbox.add_child(flash_btn)
 		
-		# 4. Search (Existing)
+		# 3. Search Bar
 		var col_search = LineEdit.new()
 		col_search.placeholder_text = "Search..."
 		col_search.size_flags_horizontal = SIZE_EXPAND_FILL
-		if search_filters.has(col): col_search.text = search_filters[col]
+		if search_filters.has(col): 
+			col_search.text = search_filters[col]
 		col_search.text_changed.connect(_on_search_text_changed.bind(col))
+		controls_hbox.add_child(col_search)
 		
-		header_hbox.add_child(col_search)
-		column_headers.add_child(header_hbox)
+		# Add controls row to main column container
+		col_container.add_child(controls_hbox)
 		
+		# Add column container to the main header bar
+		column_headers.add_child(col_container)
+		
+		# Separator between columns
 		var sep2 = VSeparator.new()
 		sep2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		column_headers.add_child(sep2)
