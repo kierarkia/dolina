@@ -24,9 +24,8 @@ const CONFIG_FILENAME = "dolina_dataset_config.json"
 
 func _ready() -> void:
 	_setup_paths()
-	# Optional: Create folders immediately on ready
 	if not is_fresh_install:
-		_ensure_directories_exist()
+		_initialize_library_structure()
 
 # --- INITIALIZATION ---
 
@@ -84,7 +83,7 @@ func update_library_path(new_path: String) -> void:
 	datasets_root_path = _base_data_path + "/datasets"
 	deleted_root_path = _base_data_path + "/deleted_files"
 	
-	_ensure_directories_exist()
+	_initialize_library_structure()
 	
 	# Emit a signal so Main knows to reload everything
 	# We can reuse 'project_loaded' or make a new one. 
@@ -96,23 +95,35 @@ func update_library_path(new_path: String) -> void:
 	current_dataset.clear()
 	current_columns.clear()
 
-func _ensure_directories_exist() -> void:
-	var dir = DirAccess.open(_base_data_path)
-	if not dir: 
-		dir = DirAccess.open(OS.get_executable_path().get_base_dir())
-		if dir: dir.make_dir_recursive(datasets_root_path)
-	else:
-		if not DirAccess.dir_exists_absolute(datasets_root_path):
-			DirAccess.make_dir_recursive_absolute(datasets_root_path)
-		if not DirAccess.dir_exists_absolute(deleted_root_path):
-			DirAccess.make_dir_recursive_absolute(deleted_root_path)
+func _initialize_library_structure() -> void:
+	# DirAccess.make_dir_recursive_absolute is a static method. 
+	# It's much cleaner than opening a directory instance first.
+	
+	# 1. Create Datasets folder
+	if not DirAccess.dir_exists_absolute(datasets_root_path):
+		var err = DirAccess.make_dir_recursive_absolute(datasets_root_path)
+		if err != OK:
+			error_occurred.emit("Failed to create folder: " + datasets_root_path)
+
+	# 2. Create Trash folder
+	if not DirAccess.dir_exists_absolute(deleted_root_path):
+		var err = DirAccess.make_dir_recursive_absolute(deleted_root_path)
+		if err != OK:
+			error_occurred.emit("Failed to create folder: " + deleted_root_path)
 
 # --- CORE ACTIONS ---
 
 func scan_projects() -> Array[String]:
+	# Check if the directory exists before trying to open it
+	if not DirAccess.dir_exists_absolute(datasets_root_path):
+		# If it doesn't exist, just return empty. 
+		# This handles the "Skip" case gracefully.
+		return []
+
 	var dir = DirAccess.open(datasets_root_path)
-	if not dir: 
-		error_occurred.emit("Data Folder Missing!")
+	if not dir:
+		# If it exists but we can't open it (permissions?), THEN error.
+		error_occurred.emit("Cannot access Data Folder!")
 		return []
 
 	dir.list_dir_begin()
