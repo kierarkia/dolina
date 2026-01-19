@@ -13,6 +13,7 @@ var current_project_name: String = ""
 var current_dataset: Dictionary = {} 
 var current_columns: Array[String] = []
 var is_fresh_install: bool = false
+var autosave_enabled: bool = true
 
 # --- PATHS ---
 var _column_path_map: Dictionary = {}
@@ -374,7 +375,7 @@ func save_config(settings_data: Dictionary) -> void:
 func load_config() -> Dictionary:
 	var path = _base_data_path + "/dolina_settings.json"
 	if not FileAccess.file_exists(path):
-		return {} # Return empty if no file exists
+		return {} 
 		
 	var file = FileAccess.open(path, FileAccess.READ)
 	if file:
@@ -382,7 +383,11 @@ func load_config() -> Dictionary:
 		var json = JSON.new()
 		var error = json.parse(content)
 		if error == OK:
-			return json.data
+			var data = json.data
+			# NEW: Load autosave setting if it exists
+			if data.has("autosave_enabled"):
+				autosave_enabled = data["autosave_enabled"]
+			return data
 	return {}
 	
 func get_column_path(col_name: String) -> String:

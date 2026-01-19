@@ -70,19 +70,22 @@ func _ready() -> void:
 	%SearchTimer.timeout.connect(_perform_search)
 	
 func _open_settings() -> void:
-	settings_dialog.open(page_size, row_height)
-
-func _on_settings_changed(new_size: int, new_height: int) -> void:
+	settings_dialog.open(page_size, row_height, project_manager.autosave_enabled)
+	
+func _on_settings_changed(new_size: int, new_height: int, new_autosave: bool) -> void:
 	page_size = new_size
 	row_height = new_height
 	
+	# Update ProjectManager immediately
+	project_manager.autosave_enabled = new_autosave
+	
 	var data = {
 		"page_size": page_size,
-		"row_height": row_height
+		"row_height": row_height,
+		"autosave_enabled": project_manager.autosave_enabled # Save to disk
 	}
 	project_manager.save_config(data)
 	
-	# Refresh the grid to apply changes
 	_calculate_pagination()
 	_render_grid()
 	_update_pagination_labels()
@@ -429,8 +432,15 @@ func _render_grid(col_width: float = -1.0) -> void:
 		
 		var row_instance = RowScene.instantiate()
 		row_container.add_child(row_instance)
-		row_instance.setup(stem, row_data, project_manager.current_columns, col_width, row_height)
 		
+		row_instance.setup(
+			stem, 
+			row_data, 
+			project_manager.current_columns, 
+			col_width, 
+			row_height,
+			project_manager.autosave_enabled # <--- NEW
+		)		
 		row_instance.request_full_image.connect(_on_row_request_image)
 		row_instance.request_create_txt.connect(_handle_create_txt)
 		row_instance.request_delete_file.connect(_handle_delete_file)

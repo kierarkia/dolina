@@ -33,7 +33,7 @@ class DragDropButton extends Button:
 
 # ---------------------------------------------------
 
-func setup(_stem: String, _data: Dictionary, _columns: Array, _cell_width: float, _row_height: float) -> void:
+func setup(_stem: String, _data: Dictionary, _columns: Array, _cell_width: float, _row_height: float, _autosave_enabled: bool) -> void:
 	stem = _stem
 	data = _data
 	columns = _columns
@@ -41,10 +41,10 @@ func setup(_stem: String, _data: Dictionary, _columns: Array, _cell_width: float
 	for child in get_children():
 		child.queue_free()
 	
-	# Pass row_height down to the builder
-	_build_ui(_cell_width, _row_height)
+	# Pass autosave setting down to build_ui
+	_build_ui(_cell_width, _row_height, _autosave_enabled)
 
-func _build_ui(cell_width: float, row_height: float) -> void:
+func _build_ui(cell_width: float, row_height: float, autosave_enabled: bool) -> void:
 	# 1. Stem Label
 	var stem_label = Label.new()
 	stem_label.text = stem
@@ -66,7 +66,6 @@ func _build_ui(cell_width: float, row_height: float) -> void:
 		
 		cell_container.custom_minimum_size.x = cell_width
 		
-		# --- USE VARIABLE HERE ---
 		cell_container.custom_minimum_size.y = row_height 
 		
 		cell_container.size_flags_horizontal = SIZE_EXPAND_FILL 
@@ -79,8 +78,7 @@ func _build_ui(cell_width: float, row_height: float) -> void:
 		elif files.size() > 1:
 			_create_conflict_state(cell_container, files)
 		else:
-			# --- PASS VARIABLE HERE TOO ---
-			_create_file_view(cell_container, files[0], cell_width, row_height)
+			_create_file_view(cell_container, files[0], cell_width, row_height, autosave_enabled)
 			
 		add_child(cell_container)
 		
@@ -143,7 +141,7 @@ func _create_conflict_state(parent: Node, files: Array) -> void:
 		del_btn.pressed.connect(func(): emit_signal("request_delete_file", f_path))
 		row.add_child(del_btn)
 		
-func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.0, row_height: float = 240.0) -> void:
+func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.0, row_height: float = 240.0, autosave_enabled: bool = false) -> void:
 	var ext = file_path.get_extension().to_lower()
 	
 	var sidebar = VBoxContainer.new()
@@ -164,7 +162,6 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		img_btn.size_flags_vertical = SIZE_SHRINK_CENTER
 		img_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		
-		# --- USE VARIABLE HERE ---
 		var init_size = min(row_height, max_width - 50)
 		img_btn.custom_minimum_size = Vector2(init_size, row_height)
 		
@@ -183,7 +180,6 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE 
 		img_btn.add_child(tex_rect)
 		
-		# --- USE VARIABLE HERE ---
 		ThumbnailLoader.request_thumbnail(file_path, int(row_height * 2), func(texture):
 			if is_instance_valid(img_btn) and texture:
 				tex_rect.texture = texture
@@ -213,7 +209,7 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		sidebar.add_child(del_btn)
 		parent.add_child(sidebar)
 
-	# B. TEXT FILES (Remain unchanged, but they now benefit from the taller cell)
+	# B. TEXT FILES
 	elif ext in ["txt", "md", "json"]:
 		if parent is BoxContainer: parent.alignment = BoxContainer.ALIGNMENT_BEGIN
 		
@@ -223,11 +219,35 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		text_edit.editable = true
 		text_edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 		
+		# Define the flash effect
 		var flash_success = func():
-			var original_modulate = Color(1, 1, 1, 1) 
-			text_edit.modulate = Color(0.5, 1.0, 0.5) 
+			var original_modulate = Color(1, 1, 1, 1)
+			text_edit.modulate = Color(0.5, 1.0, 0.5) # Green flash
 			var tween = create_tween()
 			tween.tween_property(text_edit, "modulate", original_modulate, 0.3)
+		
+		if autosave_enabled:
+			var timer = Timer.new()
+			timer.wait_time = 2.0 # Wait 2 seconds after typing stops
+			timer.one_shot = true
+			text_edit.add_child(timer) # Add timer as child of the text box
+			
+			# When text changes, (re)start the timer
+			text_edit.text_changed.connect(func():
+				timer.start()
+			)
+			
+			# When timer finishes, save!
+			timer.timeout.connect(func():
+				# Only save if visible (safety check)
+				if not text_edit.is_visible_in_tree(): return
+				
+				emit_signal("request_save_text", file_path, text_edit.text)
+				flash_success.call()
+				# Note: Toast is handled by Main connecting to the signal, 
+				# but maybe we want to suppress the toast for autosaves? 
+				# For now, let's keep it to reassure the user.
+			)
 		
 		text_edit.gui_input.connect(func(event):
 			if event is InputEventKey and event.pressed and event.keycode == KEY_S:

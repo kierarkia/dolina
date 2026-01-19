@@ -2,10 +2,11 @@ class_name SettingsDialog
 extends AcceptDialog
 
 signal settings_changed(new_page_size: int, new_row_height: int)
-signal library_path_changed # New signal for Main to catch
+signal library_path_changed
 
 @onready var rows_input: SpinBox = %RowsInput
 @onready var height_input: SpinBox = %HeightInput
+@onready var autosave_check: CheckBox = %AutosaveCheck
 @onready var path_label: Label = %CurrentPathLabel
 @onready var change_path_btn: Button = %ChangePathBtn
 @onready var dir_dialog: FileDialog = %DirDialog
@@ -33,13 +34,11 @@ func _ready() -> void:
 	rows_le.add_theme_stylebox_override("focus", red_style)
 	height_le.add_theme_stylebox_override("focus", red_style)
 	
-func open(current_page_size: int, current_row_height: int) -> void:
+func open(current_page_size: int, current_row_height: int, is_autosave_on: bool) -> void:
 	rows_input.value = current_page_size
 	height_input.value = current_row_height
+	autosave_check.button_pressed = is_autosave_on 
 	
-	# Display current path from ProjectManager
-	# We need a reference or we can just pass it in 'open'
-	# For now, let's grab it via unique name if Main is parent, or just:
 	var pm = get_tree().current_scene.find_child("ProjectManager")
 	if pm:
 		path_label.text = pm._base_data_path
@@ -51,7 +50,11 @@ func _on_dir_selected(path: String) -> void:
 	path_label.text = path + " (Pending Apply)"
 
 func _on_apply() -> void:
-	settings_changed.emit(int(rows_input.value), int(height_input.value))
+	settings_changed.emit(
+		int(rows_input.value), 
+		int(height_input.value), 
+		autosave_check.button_pressed
+	)
 	
 	if _temp_library_path != "":
 		library_path_changed.emit(_temp_library_path)
