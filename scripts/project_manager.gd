@@ -1,6 +1,8 @@
 class_name ProjectManager
 extends Node
 
+const BOOTSTRAP_FILE = "user://dolina_bootstrap.json"
+
 # --- SIGNALS ---
 signal project_loaded
 signal error_occurred(message: String)
@@ -28,16 +30,69 @@ func _ready() -> void:
 # --- INITIALIZATION ---
 
 func _setup_paths() -> void:
+	# 1. Default to local path (Portable behavior)
+	# Note: In Editor, using local res:// is safer. In Export, use executable dir.
+	var default_path = ""
 	if OS.has_feature("editor"):
-		_base_data_path = ProjectSettings.globalize_path("res://examples/data")
+		default_path = ProjectSettings.globalize_path("res://examples/data")
 	else:
-		_base_data_path = OS.get_executable_path().get_base_dir() + "/data"
-		if OS.get_name() == "macOS":
-			if _base_data_path.contains(".app"):
-				_base_data_path = OS.get_executable_path().get_base_dir().get_base_dir().get_base_dir().get_base_dir() + "/data"
-	
+		default_path = OS.get_executable_path().get_base_dir() + "/data"
+		if OS.get_name() == "macOS" and default_path.contains(".app"):
+			default_path = OS.get_executable_path().get_base_dir().get_base_dir().get_base_dir().get_base_dir() + "/data"
+
+	# 2. Check for the Bootstrap Pointer
+	_base_data_path = _load_library_path_from_bootstrap(default_path)
+
+	# 3. Set sub-paths
 	datasets_root_path = _base_data_path + "/datasets"
 	deleted_root_path = _base_data_path + "/deleted_files"
+	
+	print("Data Library Loaded at: ", _base_data_path)
+
+func _load_library_path_from_bootstrap(default_val: String) -> String:
+	if not FileAccess.file_exists(BOOTSTRAP_FILE):
+		return default_val
+		
+	var f = FileAccess.open(BOOTSTRAP_FILE, FileAccess.READ)
+	var json = JSON.new()
+	var err = json.parse(f.get_as_text())
+	if err == OK and json.data is Dictionary:
+		var path = json.data.get("library_path", "")
+		# Verify the path actually exists (if user deleted the folder, revert to default)
+		if path != "" and DirAccess.dir_exists_absolute(path):
+			return path
+			
+	return default_val
+
+# Call this when the user picks a new folder in Settings
+func update_library_path(new_path: String) -> void:
+	# 1. Save the pointer
+	var data = {"library_path": new_path}
+	var f = FileAccess.open(BOOTSTRAP_FILE, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(data))
+		f.close()
+	
+	# 2. We need to restart or re-init. 
+	# For simplicity, let's just update internal vars and ask Main to refresh.
+	# But moving the ACTUAL files is risky to do automatically.
+	# Let's assume the user points to an EMPTY folder or an EXISTING library.
+	
+	_base_data_path = new_path
+	datasets_root_path = _base_data_path + "/datasets"
+	deleted_root_path = _base_data_path + "/deleted_files"
+	
+	_ensure_directories_exist()
+	
+	# Emit a signal so Main knows to reload everything
+	# We can reuse 'project_loaded' or make a new one. 
+	# Let's emit a toast and reload the project list.
+	toast_requested.emit("Library Path Updated!")
+	
+	# Reload current project state (will likely be empty if new folder)
+	current_project_name = ""
+	current_dataset.clear()
+	current_columns.clear()
 
 func _ensure_directories_exist() -> void:
 	var dir = DirAccess.open(_base_data_path)

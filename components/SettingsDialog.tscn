@@ -26,7 +26,8 @@ value = 10.0
 [node name="Label2" type="Label" parent="VBoxContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "Row Height (px)"
+text = "
+Row Height (px)"
 
 [node name="HeightInput" type="SpinBox" parent="VBoxContainer"]
 unique_name_in_owner = true
@@ -35,3 +36,28 @@ min_value = 50.0
 max_value = 1000.0
 step = 10.0
 value = 240.0
+
+[node name="Label3" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "
+Change Data Folder Path"
+
+[node name="CurrentPathLabel" type="Label" parent="VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ChangePathBtn" type="Button" parent="VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Change Data Folder Path"
+
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="DirDialog" type="FileDialog" parent="VBoxContainer"]
+unique_name_in_owner = true
+title = "Open a Directory"
+file_mode = 2
+access = 2

@@ -66,6 +66,7 @@ func _ready() -> void:
 	# CONNECT SETTINGS
 	settings_btn.pressed.connect(_open_settings)
 	settings_dialog.settings_changed.connect(_on_settings_changed)
+	settings_dialog.library_path_changed.connect(_on_library_path_changed)
 	
 func _open_settings() -> void:
 	settings_dialog.open(page_size, row_height)
@@ -84,6 +85,12 @@ func _on_settings_changed(new_size: int, new_height: int) -> void:
 	_calculate_pagination()
 	_render_grid()
 	_update_pagination_labels()
+	
+func _on_library_path_changed(new_path: String) -> void:
+	project_manager.update_library_path(new_path)
+	
+	# Refresh the project list because we are looking at a new folder now
+	_scan_and_populate_projects()
 	
 func _connect_signals() -> void:
 	# UI Signals
