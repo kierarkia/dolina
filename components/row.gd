@@ -153,7 +153,7 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 	del_btn.modulate = Color(1, 0.4, 0.4)
 	del_btn.pressed.connect(func(): emit_signal("request_delete_file", file_path))
 	
-	# A. IMAGES
+	# A. IMAGES (Unchanged)
 	if ext in ["png", "jpg", "jpeg", "webp"]:
 		var img_btn = Button.new()
 		img_btn.flat = true
@@ -183,14 +183,10 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		ThumbnailLoader.request_thumbnail(file_path, int(row_height * 2), func(texture):
 			if is_instance_valid(img_btn) and texture:
 				tex_rect.texture = texture
-				
 				var t_size = texture.get_size()
 				var aspect = t_size.x / t_size.y
-				
-				# --- USE VARIABLE HERE ---
 				var display_h = row_height
 				var display_w = int(display_h * aspect)
-				
 				var safe_max_w = max_width - 40 - 10 
 				
 				if display_w > safe_max_w:
@@ -198,7 +194,6 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 					display_h = display_w / aspect
 				
 				display_w = min(display_w, safe_max_w)
-				
 				img_btn.custom_minimum_size = Vector2(display_w, display_h)
 				placeholder_lbl.queue_free()
 		)
@@ -209,7 +204,7 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		sidebar.add_child(del_btn)
 		parent.add_child(sidebar)
 
-# B. TEXT FILES
+	# B. TEXT FILES (Updated with Scroll Buffer)
 	elif ext in ["txt", "md", "json"]:
 		if parent is BoxContainer: parent.alignment = BoxContainer.ALIGNMENT_BEGIN
 		
@@ -219,6 +214,44 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		text_edit.editable = true
 		text_edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 		
+		# --- SCROLL BUFFER LOGIC START ---
+		# We use a Dictionary to store the counter so we can modify it inside the lambda
+		var scroll_state = {"buffer_hits": 0}
+		const SCROLL_BUFFER_MAX = 4 # How many "ticks" to trap before letting go
+		
+		text_edit.gui_input.connect(func(event):
+			if event is InputEventMouseButton and event.pressed:
+				var v_bar = text_edit.get_v_scroll_bar()
+				
+				# 1. If content is short and fits entirely, NEVER trap the mouse.
+				if v_bar.max_value <= v_bar.page:
+					return
+				
+				# 2. Check edges
+				var at_top = v_bar.value <= v_bar.min_value
+				var at_bottom = v_bar.value >= (v_bar.max_value - v_bar.page)
+				
+				var trying_to_overscroll = false
+				if event.button_index == MOUSE_BUTTON_WHEEL_UP and at_top:
+					trying_to_overscroll = true
+				elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and at_bottom:
+					trying_to_overscroll = true
+				
+				# 3. Apply Trap Logic
+				if trying_to_overscroll:
+					if scroll_state.buffer_hits < SCROLL_BUFFER_MAX:
+						scroll_state.buffer_hits += 1
+						# "Handle" the input so it doesn't bubble up to the Page Scroll
+						get_viewport().set_input_as_handled()
+					else:
+						# Buffer full: Do nothing (let it bubble up to scroll the page)
+						pass
+				else:
+					# We are scrolling INSIDE the text box, so reset the buffer
+					scroll_state.buffer_hits = 0
+		)
+		# --- SCROLL BUFFER LOGIC END ---
+		
 		var flash_success = func():
 			var original_modulate = Color(1, 1, 1, 1)
 			text_edit.modulate = Color(0.5, 1.0, 0.5) 
@@ -227,39 +260,31 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		
 		var autosave_timer: Timer = null 
 		
-		# --- AUTOSAVE LOGIC ---
 		if autosave_enabled:
-			autosave_timer = Timer.new()
+			autosave_timer = Timer.new() 
 			autosave_timer.wait_time = 2.0 
 			autosave_timer.one_shot = true
 			autosave_timer.add_to_group("autosave_timers")
-			
 			text_edit.add_child(autosave_timer) 
 			
 			text_edit.text_changed.connect(func():
 				autosave_timer.start()
 			)
-			
 			autosave_timer.timeout.connect(func():
 				if not text_edit.is_visible_in_tree(): return
 				emit_signal("request_save_text", file_path, text_edit.text)
 				flash_success.call()
 			)
-			
-			# Safety cleanup
 			autosave_timer.tree_exiting.connect(func():
 				if not autosave_timer.is_stopped():
 					autosave_timer.timeout.emit()
 			)
-		# ----------------------
 		
 		text_edit.gui_input.connect(func(event):
 			if event is InputEventKey and event.pressed and event.keycode == KEY_S:
 				if event.is_command_or_control_pressed():
 					get_viewport().set_input_as_handled()
-					
 					if autosave_timer: autosave_timer.stop() 
-					
 					emit_signal("request_save_text", file_path, text_edit.text)
 					flash_success.call() 
 		)
@@ -273,7 +298,6 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		save_btn.tooltip_text = "Save Changes (Ctrl+S)"
 		save_btn.pressed.connect(func(): 
 			if autosave_timer: autosave_timer.stop()
-			
 			emit_signal("request_save_text", file_path, text_edit.text)
 			flash_success.call() 
 		)
