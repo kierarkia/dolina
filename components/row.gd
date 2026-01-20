@@ -315,7 +315,6 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		
 		sidebar.add_child(expand_btn)
 		sidebar.add_child(save_btn)
-		sidebar.add_child(HSeparator.new())
 		sidebar.add_child(del_btn)
 		parent.add_child(sidebar)
 
