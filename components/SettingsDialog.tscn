@@ -1,7 +1,33 @@
-[gd_scene load_steps=3 format=3 uid="uid://c58bmeeukos2g"]
+[gd_scene load_steps=5 format=3 uid="uid://c58bmeeukos2g"]
 
 [ext_resource type="Script" uid="uid://fp3bk4fanucp" path="res://components/settings_dialog.gd" id="1_dtdv5"]
 [ext_resource type="Theme" uid="uid://duyeylfni0bvn" path="res://assets/DolinaTheme.tres" id="2_k2t7h"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_k2t7h"]
+bg_color = Color(0.101960786, 0.101960786, 0.101960786, 0.78431374)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.1764706, 0.23137255, 0.20392157, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dekc2"]
+content_margin_left = 8.0
+content_margin_right = 8.0
+bg_color = Color(0.1764706, 0.23137255, 0.20392157, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.25490198, 0.9411765, 0.58431375, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
 
 [node name="SettingsDialog" type="AcceptDialog"]
 title = "Settings"
@@ -48,6 +74,10 @@ Autosave"
 unique_name_in_owner = true
 layout_mode = 2
 theme = ExtResource("2_k2t7h")
+theme_override_colors/font_pressed_color = Color(0.8745098, 0.8745098, 0.8745098, 1)
+theme_override_constants/h_separation = 9
+theme_override_styles/pressed = SubResource("StyleBoxFlat_k2t7h")
+theme_override_styles/hover_pressed = SubResource("StyleBoxFlat_dekc2")
 text = "Enable Text Autosave"
 
 [node name="LabelsPathSave" type="Label" parent="VBoxContainer"]

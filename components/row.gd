@@ -217,7 +217,7 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		# --- SCROLL BUFFER LOGIC START ---
 		# We use a Dictionary to store the counter so we can modify it inside the lambda
 		var scroll_state = {"buffer_hits": 0}
-		const SCROLL_BUFFER_MAX = 4 # How many "ticks" to trap before letting go
+		const SCROLL_BUFFER_MAX = 6 # How many "ticks" to trap before letting go
 		
 		text_edit.gui_input.connect(func(event):
 			if event is InputEventMouseButton and event.pressed:
