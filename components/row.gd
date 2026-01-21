@@ -154,7 +154,7 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 	del_btn.modulate = Color(1, 0.4, 0.4)
 	del_btn.pressed.connect(func(): emit_signal("request_delete_file", file_path))
 	
-	# A. IMAGES (Unchanged)
+	# A. IMAGES
 	if ext in ["png", "jpg", "jpeg", "webp"]:
 		var img_btn = Button.new()
 		img_btn.flat = true
