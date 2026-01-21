@@ -41,6 +41,7 @@ var is_searching: bool = false
 var filtered_stems: Array = []
 var last_browsing_page: int = 1
 var _is_restoring_view: bool = false
+var _current_search_version: int = 0
 
 func _ready() -> void:
 	_connect_signals()
@@ -552,6 +553,7 @@ func _on_search_text_changed(new_text: String, col_identifier: String) -> void:
 	%SearchTimer.start()
 
 func _perform_search() -> void:
+	# 1. Handle Empty State (Fast path - no thread needed)
 	if search_filters.is_empty():
 		is_searching = false
 		current_page = last_browsing_page
@@ -559,41 +561,23 @@ func _perform_search() -> void:
 		_update_ui()
 		return
 	
+	# 2. Setup Thread Logic
 	is_searching = true
-	filtered_stems.clear()
+	_current_search_version += 1
+	var this_version = _current_search_version
+	
+	# Snapshot the data we need.
+	# Note: Dictionaries are passed by reference, but we duplicate the keys list
+	# so we have a stable list to iterate over.
 	var dataset = project_manager.current_dataset
+	var stems_to_search = dataset.keys()
+	var filters_snapshot = search_filters.duplicate()
 	
-	# Filter Logic (AND)
-	for stem in dataset:
-		var match_all = true
-		for col_key in search_filters:
-			var query = search_filters[col_key]
-			if col_key == "ID":
-				if not stem.to_lower().contains(query):
-					match_all = false; break
-			else:
-				var files = dataset[stem].get(col_key, [])
-				var col_match = false
-				for f_path in files:
-					if f_path.get_file().to_lower().contains(query):
-						col_match = true; break
-				if not col_match:
-					for f_path in files:
-						var ext = f_path.get_extension().to_lower()
-						if ext in ["txt", "md", "json"]:
-							var f = FileAccess.open(f_path, FileAccess.READ)
-							if f and f.get_as_text().to_lower().contains(query):
-								col_match = true; break
-				if not col_match:
-					match_all = false; break
-		
-		if match_all: filtered_stems.append(stem)
-	
-	filtered_stems.sort()
-	current_page = 1
-	_calculate_pagination()
-	_render_grid()
-	_update_pagination_labels()
+	# 3. Dispatch to WorkerThreadPool
+	# We bind the 'this_version' so the thread knows its own ID
+	WorkerThreadPool.add_task(
+		_execute_threaded_search.bind(this_version, stems_to_search, dataset, filters_snapshot)
+	)
 
 # --- INPUT & HELPERS ---
 
@@ -670,3 +654,79 @@ func _perform_shutdown_cleanup() -> void:
 			
 	if saved_count > 0:
 		print("Graceful Shutdown: Forced save on %d files." % saved_count)
+
+func _execute_threaded_search(task_version: int, stems: Array, dataset: Dictionary, filters: Dictionary) -> void:
+	var results: Array = []
+	
+	for i in range(stems.size()):
+		# A. CANCELLATION CHECK
+		# Every 20 items, check if the main thread has started a NEW search.
+		# If so, stop working immediately to save CPU/Disk usage.
+		if i % 20 == 0:
+			if task_version != _current_search_version:
+				return 
+
+		var stem = stems[i]
+		
+		# B. SAFETY CHECK
+		# Because 'dataset' is a reference, the main thread might have deleted 
+		# a file while we were searching.
+		var row_data = dataset.get(stem)
+		if row_data == null: continue
+		
+		# C. MATCHING LOGIC
+		var match_all = true
+		
+		for col_key in filters:
+			var query = filters[col_key]
+			
+			if col_key == "ID":
+				if not stem.to_lower().contains(query):
+					match_all = false
+					break
+			else:
+				var files = row_data.get(col_key, [])
+				var col_match = false
+				
+				# 1. Check Filenames (Fast)
+				for f_path in files:
+					if f_path.get_file().to_lower().contains(query):
+						col_match = true
+						break
+				
+				# 2. Check File Content (Slow - Disk I/O)
+				if not col_match:
+					for f_path in files:
+						var ext = f_path.get_extension().to_lower()
+						if ext in ["txt", "md", "json"]:
+							# This is the blocking call that used to freeze the UI
+							var f = FileAccess.open(f_path, FileAccess.READ)
+							if f and f.get_as_text().to_lower().contains(query):
+								col_match = true
+								break
+				
+				if not col_match:
+					match_all = false
+					break
+		
+		if match_all:
+			results.append(stem)
+
+	# D. RETURN TO MAIN THREAD
+	# We cannot touch the UI from here. call_deferred pushes this back to the main loop.
+	call_deferred("_on_search_complete", results, task_version)
+
+# Back on the Main Thread
+func _on_search_complete(results: Array, task_version: int) -> void:
+	# Verify this result is still fresh
+	if task_version != _current_search_version:
+		return
+		
+	filtered_stems = results
+	filtered_stems.sort()
+	
+	# Update UI
+	current_page = 1
+	_calculate_pagination()
+	_render_grid()
+	_update_pagination_labels()
