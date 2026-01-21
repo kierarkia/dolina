@@ -47,8 +47,9 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "filename.txt"
 
-[node name="VSeparator" type="VSeparator" parent="Sheet/VBoxContainer/Toolbar"]
+[node name="MiddleExpandSpacer" type="Control" parent="Sheet/VBoxContainer/Toolbar"]
 layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="SaveBtn" type="Button" parent="Sheet/VBoxContainer/Toolbar"]
 unique_name_in_owner = true
