@@ -243,6 +243,7 @@ func _on_project_data_loaded() -> void:
 		
 		_calculate_pagination()
 		_update_ui()
+		scroll_container.scroll_vertical = 0
 		
 func _show_welcome_screen() -> void:
 	var welcome = WelcomeScene.instantiate()
@@ -621,9 +622,9 @@ func _change_page(direction: int) -> void:
 		current_page = new_page
 		_update_pagination_labels()
 		_render_grid()
+		scroll_container.scroll_vertical = 0
 
 func _on_page_jump_requested(target_page: int) -> void:
-	# Clamp the value (Header might have passed a raw number)
 	if target_page < 1: target_page = 1
 	elif target_page > total_pages: target_page = total_pages
 	
@@ -631,6 +632,7 @@ func _on_page_jump_requested(target_page: int) -> void:
 		current_page = target_page
 		_render_grid()
 		_update_pagination_labels()
+		scroll_container.scroll_vertical = 0
 
 func _update_pagination_labels() -> void:
 	header.update_pagination(current_page, total_pages)
@@ -671,19 +673,16 @@ func _perform_shutdown_cleanup() -> void:
 		print("Graceful Shutdown: Forced save on %d files." % saved_count)
 
 func _on_search_completed(results: Array) -> void:
-	# 1. Update the results list
 	filtered_stems = results
 	
-	# 2. Check if we are currently "in search mode"
 	is_searching = %SearchManager.is_active()
 	
-	# 3. Handle Page Reset vs Restore
 	if not is_searching:
 		current_page = last_browsing_page
 	else:
 		current_page = 1
 		
-	# 4. Refresh UI
 	_calculate_pagination()
 	_render_grid()
 	_update_pagination_labels()
+	scroll_container.scroll_vertical = 0

@@ -1,6 +1,6 @@
 {
 	"autosave_enabled": true,
-	"cache_limit_mb": 512,
+	"cache_limit_mb": 128,
 	"page_size": 10,
 	"row_height": 240
 }
