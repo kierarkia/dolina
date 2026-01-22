@@ -14,20 +14,13 @@ var stem: String
 var data: Dictionary
 var columns: Array
 
-const ROW_HEIGHT = 240
-
-# --- INNER CLASS: Custom Button that accepts files ---
+# --- INNER CLASS ---
 class DragDropButton extends Button:
 	signal file_dropped(path: String)
-	
 	func _ready() -> void:
-		# Listen to the WINDOW for file drops
 		get_viewport().files_dropped.connect(_on_files_dropped)
-		
 	func _on_files_dropped(files: PackedStringArray) -> void:
-		# 1. Check if the mouse is hovering over THIS button right now
 		if get_global_rect().has_point(get_global_mouse_position()):
-			# 2. Check if visible (safety check)
 			if is_visible_in_tree() and files.size() > 0:
 				file_dropped.emit(files[0])
 
@@ -38,56 +31,99 @@ func setup(_stem: String, _data: Dictionary, _columns: Array, _cell_width: float
 	data = _data
 	columns = _columns
 	
-	for child in get_children():
-		child.queue_free()
+	# We expect: 1 Label + 1 Sep + (Cols * 2) children
+	var expected_child_count = 2 + (columns.size() * 2)
 	
-	# Pass autosave setting down to build_ui
-	_build_ui(_cell_width, _row_height, _autosave_enabled)
+	if get_child_count() != expected_child_count:
+		for child in get_children():
+			child.queue_free()
+		_build_structure()
+	
+	_update_content(_cell_width, _row_height, _autosave_enabled)
 
-func _build_ui(cell_width: float, row_height: float, autosave_enabled: bool) -> void:
+func _build_structure() -> void:
 	# 1. Stem Label
 	var stem_label = Label.new()
-	stem_label.text = stem
+	stem_label.name = "StemLabel"
+	
+	# STRICT WIDTH: Keeps the layout stable
 	stem_label.custom_minimum_size.x = 150
+	
+	# CRITICAL FIX FOR BLANK LABELS: 
+	# We must tell the label to fill the vertical space of the row, 
+	# otherwise the "Autowrap" feature might calculate a height of 0.
+	stem_label.size_flags_vertical = SIZE_EXPAND_FILL 
+	
+	# Wrapping & Alignment
 	stem_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	stem_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	stem_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stem_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	stem_label.max_lines_visible = 4 
+	
 	add_child(stem_label)
 	
-	# Fix 1: First VSeparator
-	var sep1 = VSeparator.new()
-	sep1.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(sep1)
+	var sep = VSeparator.new()
+	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(sep)
 	
-	# 2. Dynamic Columns
-	for col_name in columns:
-		var cell_container = HBoxContainer.new()
-		# Click-through
-		cell_container.mouse_filter = Control.MOUSE_FILTER_IGNORE 
+	# Columns
+	for i in range(columns.size()):
+		var cell = HBoxContainer.new()
+		cell.name = "Cell_%d" % i
+		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cell.alignment = BoxContainer.ALIGNMENT_CENTER
 		
-		cell_container.custom_minimum_size.x = cell_width
+		# Initialize meta to null to prevent "first run" errors
+		cell.set_meta("current_files", null)
 		
-		cell_container.custom_minimum_size.y = row_height 
+		add_child(cell)
 		
-		cell_container.size_flags_horizontal = SIZE_EXPAND_FILL 
-		cell_container.alignment = BoxContainer.ALIGNMENT_CENTER
+		var c_sep = VSeparator.new()
+		c_sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(c_sep)
+
+func _update_content(cell_width: float, row_height: float, autosave_enabled: bool) -> void:
+	var stem_lbl = get_node("StemLabel") as Label
+	stem_lbl.text = stem
+	
+	var child_indices = get_children()
+	
+	for i in range(columns.size()):
+		var col_name = columns[i]
+		var cell_node = child_indices[2 + (i * 2)] as HBoxContainer
+		
+		# Layout updates
+		cell_node.custom_minimum_size.x = cell_width
+		cell_node.custom_minimum_size.y = row_height
+		cell_node.size_flags_horizontal = SIZE_EXPAND_FILL
+		
+		# Reset alignment because Text files might have changed it
+		cell_node.alignment = BoxContainer.ALIGNMENT_CENTER
 		
 		var files = data.get(col_name, [])
 		
-		if files.is_empty():
-			_create_empty_state(cell_container, col_name)
-		elif files.size() > 1:
-			_create_conflict_state(cell_container, files)
-		else:
-			_create_file_view(cell_container, files[0], cell_width, row_height, autosave_enabled)
-			
-		add_child(cell_container)
+		var current_meta = null
+		if cell_node.has_meta("current_files"):
+			current_meta = cell_node.get_meta("current_files")
 		
-		# Fix 2: VSeparator between columns
-		var sep2 = VSeparator.new()
-		sep2.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(sep2)
+		# Smart Check: If content is same, skip rebuild
+		if current_meta == files:
+			continue
+			
+		# Content changed: Rebuild
+		cell_node.set_meta("current_files", files)
+		for c in cell_node.get_children():
+			c.queue_free()
+			
+		if files.is_empty():
+			_create_empty_state(cell_node, col_name)
+		elif files.size() > 1:
+			_create_conflict_state(cell_node, files)
+		else:
+			_create_file_view(cell_node, files[0], cell_width, row_height, autosave_enabled)
 
-# --- CELL STATES ---
+# --- CELL STATES (These remain the same as your previous version) ---
 
 func _create_empty_state(parent: Node, col_name: String) -> void:
 	var vbox = VBoxContainer.new()
@@ -99,21 +135,12 @@ func _create_empty_state(parent: Node, col_name: String) -> void:
 	btn_create.pressed.connect(func(): emit_signal("request_create_txt", stem, col_name))
 	vbox.add_child(btn_create)
 	
-	# CHANGE: Use our custom DragDropButton
 	var btn_upload = DragDropButton.new()
-	# Text with newline for height
 	btn_upload.text = "⬆ Upload File\n(Drag & Drop)"
 	btn_upload.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	
-	# Force minimum height for easier dropping
 	btn_upload.custom_minimum_size.y = 80
-	
-	# Normal click -> Open Dialog
 	btn_upload.pressed.connect(func(): emit_signal("request_upload", stem, col_name))
-	
-	# Drag Drop -> Direct Upload
 	btn_upload.file_dropped.connect(func(path): emit_signal("request_direct_upload", stem, col_name, path))
-	
 	vbox.add_child(btn_upload)
 
 func _create_conflict_state(parent: Node, files: Array) -> void:
@@ -215,43 +242,30 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		text_edit.editable = true
 		text_edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 		
-		# --- SCROLL BUFFER LOGIC START ---
-		# We use a Dictionary to store the counter so we can modify it inside the lambda
 		var scroll_state = {"buffer_hits": 0}
-		const SCROLL_BUFFER_MAX = 6 # How many "ticks" to trap before letting go
+		const SCROLL_BUFFER_MAX = 6
 		
 		text_edit.gui_input.connect(func(event):
 			if event is InputEventMouseButton and event.pressed:
 				var v_bar = text_edit.get_v_scroll_bar()
-				
-				# 1. If content is short and fits entirely, NEVER trap the mouse.
 				if v_bar.max_value <= v_bar.page:
 					return
-				
-				# 2. Check edges
 				var at_top = v_bar.value <= v_bar.min_value
 				var at_bottom = v_bar.value >= (v_bar.max_value - v_bar.page)
-				
 				var trying_to_overscroll = false
 				if event.button_index == MOUSE_BUTTON_WHEEL_UP and at_top:
 					trying_to_overscroll = true
 				elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and at_bottom:
 					trying_to_overscroll = true
-				
-				# 3. Apply Trap Logic
 				if trying_to_overscroll:
 					if scroll_state.buffer_hits < SCROLL_BUFFER_MAX:
 						scroll_state.buffer_hits += 1
-						# "Handle" the input so it doesn't bubble up to the Page Scroll
 						get_viewport().set_input_as_handled()
 					else:
-						# Buffer full: Do nothing (let it bubble up to scroll the page)
 						pass
 				else:
-					# We are scrolling INSIDE the text box, so reset the buffer
 					scroll_state.buffer_hits = 0
 		)
-		# --- SCROLL BUFFER LOGIC END ---
 		
 		var flash_success = func():
 			var original_modulate = Color(1, 1, 1, 1)
@@ -307,9 +321,7 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 		expand_btn.text = "⤢"
 		expand_btn.tooltip_text = "Expand Editor"
 		expand_btn.pressed.connect(func():
-		# Stop local autosave to avoid conflicts/double saving
 			if autosave_timer: autosave_timer.stop()
-			# Send current text up to Main
 			emit_signal("request_expanded_text", file_path, text_edit.text)
 		)
 		
@@ -321,37 +333,25 @@ func _create_file_view(parent: Node, file_path: String, max_width: float = 2000.
 func _on_image_clicked(path: String) -> void:
 	emit_signal("request_full_image", stem, path)
 	
-# Updates a specific text box in this row without reloading everything
 func update_text_cell(file_path: String, new_content: String) -> void:
 	var text_edit = _find_text_edit_for_path(self, file_path)
-	
 	if text_edit:
-		# Don't update if content is identical (prevents cursor jump if no changes)
 		if text_edit.text == new_content: return
-		
 		var current_cursor = text_edit.get_caret_line()
 		var current_col = text_edit.get_caret_column()
-		
 		text_edit.text = new_content
-		
-		# Restore cursor approximate position
 		text_edit.set_caret_line(current_cursor)
 		text_edit.set_caret_column(current_col)
-		
-		# Visual feedback
 		var original_modulate = Color(1, 1, 1, 1)
 		text_edit.modulate = Color(0.5, 1.0, 0.5)
 		var tween = create_tween()
 		tween.tween_property(text_edit, "modulate", original_modulate, 0.5)
-		
-# Helper to find the tagged TextEdit
+
 func _find_text_edit_for_path(parent: Node, target_path: String) -> TextEdit:
 	for child in parent.get_children():
 		if child is TextEdit:
 			if child.has_meta("file_path") and child.get_meta("file_path") == target_path:
 				return child
-		
-		# Recursively search children (because of Containers/Sidebars)
 		var found = _find_text_edit_for_path(child, target_path)
 		if found: return found
 	return null

@@ -80,6 +80,18 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_k2t7h")
 theme_override_styles/hover_pressed = SubResource("StyleBoxFlat_dekc2")
 text = "Enable Text Autosave"
 
+[node name="LabelCache" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="CacheLimitInput" type="SpinBox" parent="VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 64.0
+max_value = 8192.0
+step = 64.0
+value = 128.0
+suffix = "MB"
+
 [node name="LabelsPathSave" type="Label" parent="VBoxContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24

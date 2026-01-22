@@ -3,7 +3,7 @@ extends Control
 
 # --- CONFIG ---
 var page_size: int = 10
-var row_height: int = 240 # Default height
+var row_height: int = 240
 const RowScene = preload("res://components/Row.tscn")
 const ToastScene = preload("res://components/Toast.tscn")
 const WelcomeScene = preload("res://components/WelcomeScreen.tscn")
@@ -66,6 +66,9 @@ func _ready() -> void:
 		page_size = int(saved_settings["page_size"])
 	if saved_settings.has("row_height"):
 		row_height = int(saved_settings["row_height"])
+		
+	if saved_settings.has("cache_limit_mb"):
+		ThumbnailLoader.set_cache_limit_mb(int(saved_settings["cache_limit_mb"]))
 	
 	background.mouse_filter = Control.MOUSE_FILTER_STOP
 	background.gui_input.connect(_on_background_clicked)
@@ -127,19 +130,31 @@ func _show_error_state() -> void:
 	error_state.show()
 	
 func _open_settings() -> void:
-	settings_dialog.open(page_size, row_height, project_manager.autosave_enabled)
+	# Convert bytes to MB for the UI
+	var current_limit_mb = ThumbnailLoader._cache_limit_bytes / (1024.0 * 1024.0)
 	
-func _on_settings_changed(new_size: int, new_height: int, new_autosave: bool) -> void:
+	settings_dialog.open(
+		page_size, 
+		row_height, 
+		project_manager.autosave_enabled, 
+		current_limit_mb
+	)
+	
+func _on_settings_changed(new_size: int, new_height: int, new_autosave: bool, new_cache_limit_mb: int) -> void:
 	page_size = new_size
 	row_height = new_height
 	
-	# Update ProjectManager immediately
+	ThumbnailLoader.set_cache_limit_mb(new_cache_limit_mb)
+	
+	# Update ProjectManager
 	project_manager.autosave_enabled = new_autosave
 	
+	# Save config
 	var data = {
 		"page_size": page_size,
 		"row_height": row_height,
-		"autosave_enabled": project_manager.autosave_enabled # Save to disk
+		"autosave_enabled": project_manager.autosave_enabled,
+		"cache_limit_mb": new_cache_limit_mb 
 	}
 	project_manager.save_config(data)
 	
@@ -263,6 +278,7 @@ func _on_welcome_completed(selected_path: String, is_portable: bool, welcome_ins
 # --- FILE OPERATION HANDLERS ---
 
 func _handle_create_txt(stem: String, col_name: String) -> void:
+	_is_restoring_view = true
 	project_manager.create_text_file(stem, col_name)
 
 func _handle_delete_file(path: String) -> void:
@@ -271,9 +287,11 @@ func _handle_delete_file(path: String) -> void:
 	var img_path = path if is_image else ""
 	
 	var action_recycle = func():
+		_is_restoring_view = true
 		project_manager.move_file_to_trash(path)
 
 	var action_permanent = func():
+		_is_restoring_view = true
 		project_manager.delete_file_permanently(path)
 
 	safety_dialog.open_delete(prompt, img_path, action_recycle, action_permanent)
@@ -296,7 +314,7 @@ func _handle_bulk_populate(col_name: String) -> void:
 	var prompt = "Create %d text files in '%s'?" % [count, col_name]
 	
 	var action = func():
-		# Retrieve the text from the dialog at the moment the button is pressed
+		_is_restoring_view = true
 		var user_text = safety_dialog.get_input_text()
 		project_manager.populate_empty_files(col_name, user_text)
 		
@@ -316,12 +334,14 @@ func _on_file_uploaded(source_path: String) -> void:
 	var col_name = _upload_target_info["col"]
 	
 	# Use the manager function
+	_is_restoring_view = true
 	project_manager.import_file(stem, col_name, source_path)
 	
 	_upload_target_info.clear()
 
 func _handle_direct_upload(stem: String, col_name: String, source_path: String) -> void:
 	# Use the manager function
+	_is_restoring_view = true
 	project_manager.import_file(stem, col_name, source_path)
 
 # --- UI & PAGINATION ---
@@ -445,51 +465,117 @@ func _update_ui() -> void:
 	_update_pagination_labels()
 	_render_grid(col_width)
 
-func _render_grid(col_width: float = -1.0) -> void:
-	if col_width < 0: col_width = _calculate_column_width()
-	for child in row_container.get_children(): child.queue_free()
+func _trigger_preload() -> void:
+	# Only preload if we aren't on the last page
+	if current_page >= total_pages: return
 	
 	var dataset = project_manager.current_dataset
-	var source_list = []
 	
-	# Check Manager status instead of local variable
-	if %SearchManager.is_active(): 
+	# Determine source list (Search vs Normal)
+	var source_list = []
+	if %SearchManager.is_active():
 		source_list = filtered_stems
-	else: 
+	else:
+		source_list = dataset.keys()
+		source_list.sort()
+		
+	# Calculate range for NEXT page
+	var start_index = current_page * page_size # (current_page is 1-based, so this jumps to next page start)
+	
+	# Let's limit preload to the first 4 rows of the next page to be gentle
+	var rows_to_preload = 4 
+	var end_index = min(start_index + rows_to_preload, source_list.size())
+	
+	for i in range(start_index, end_index):
+		var stem = source_list[i]
+		var row_data = dataset.get(stem, {})
+		
+		# Find images in this row
+		for col in project_manager.current_columns:
+			var files = row_data.get(col, [])
+			for f_path in files:
+				if f_path.get_extension().to_lower() in ["png", "jpg", "jpeg", "webp"]:
+					# Request with a dummy callback (we just want it in cache)
+					# We use the same row_height * 2 logic as the Row component
+					ThumbnailLoader.request_thumbnail(f_path, int(row_height * 2), func(_tex): pass)
+
+func _render_grid(col_width: float = -1.0) -> void:
+	if col_width < 0: col_width = _calculate_column_width()
+	
+	# --- DATA PREP ---
+	var dataset = project_manager.current_dataset
+	var source_list = []
+	if %SearchManager.is_active():
+		source_list = filtered_stems
+	else:
 		source_list = dataset.keys()
 		source_list.sort()
 	
 	var start_index = (current_page - 1) * page_size
 	var end_index = min(start_index + page_size, source_list.size())
 	
+	# --- POOLING LOGIC ---
+	var existing_children = row_container.get_children()
+	var child_idx = 0
+	
 	for i in range(start_index, end_index):
 		var stem = source_list[i]
 		var row_data = dataset[stem]
 		
-		var row_instance = RowScene.instantiate()
-		row_container.add_child(row_instance)
+		var row_instance: Row
+		var sep_instance: HSeparator
 		
+		# 1. Check if we have a recyclable pair (Row + Separator)
+		# We look ahead 2 indices (current + next) because we store [Row, Sep, Row, Sep...]
+		if child_idx + 1 < existing_children.size():
+			# RECYCLE: Grab existing nodes
+			row_instance = existing_children[child_idx] as Row
+			sep_instance = existing_children[child_idx + 1] as HSeparator
+			
+			row_instance.show()
+			sep_instance.show()
+			
+			# Note: We don't need to re-connect signals because they stick around!
+		else:
+			# CREATE: Instantiate new nodes
+			row_instance = RowScene.instantiate()
+			sep_instance = HSeparator.new()
+			sep_instance.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			
+			row_container.add_child(row_instance)
+			row_container.add_child(sep_instance)
+			
+			# CONNECT SIGNALS (Only done once per instance)
+			row_instance.request_full_image.connect(_on_row_request_image)
+			row_instance.request_create_txt.connect(_handle_create_txt)
+			row_instance.request_delete_file.connect(_handle_delete_file)
+			row_instance.request_save_text.connect(_handle_save_text)
+			row_instance.request_expanded_text.connect(func(path, content):
+				text_editor.open(path, content, project_manager.autosave_enabled)
+			)
+			row_instance.request_upload.connect(_handle_request_upload)
+			row_instance.request_direct_upload.connect(_handle_direct_upload)
+		
+		# 2. Setup the Row (This is the "Renovation" part)
 		row_instance.setup(
 			stem, 
 			row_data, 
 			project_manager.current_columns, 
 			col_width, 
 			row_height,
-			project_manager.autosave_enabled # <--- NEW
-		)		
-		row_instance.request_full_image.connect(_on_row_request_image)
-		row_instance.request_create_txt.connect(_handle_create_txt)
-		row_instance.request_delete_file.connect(_handle_delete_file)
-		row_instance.request_save_text.connect(_handle_save_text)
-		row_instance.request_expanded_text.connect(func(path, content):
-			text_editor.open(path, content, project_manager.autosave_enabled)
+			project_manager.autosave_enabled
 		)
-		row_instance.request_upload.connect(_handle_request_upload)
-		row_instance.request_direct_upload.connect(_handle_direct_upload)
 		
-		var h_sep = HSeparator.new()
-		h_sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row_container.add_child(h_sep)
+		# Advance our index by 2 (Row + Separator)
+		child_idx += 2
+
+	# 3. Hide Unused Nodes (Don't delete them, keep them for next time)
+	while child_idx < existing_children.size():
+		existing_children[child_idx].hide()
+		child_idx += 1
+		
+	# --- PRELOAD NEXT PAGE ---
+	_trigger_preload()
 
 func _on_row_request_image(stem: String, clicked_path: String) -> void:
 	var row_images: Array[String] = []
