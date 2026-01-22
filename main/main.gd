@@ -214,6 +214,11 @@ func _on_project_selected(_index: int) -> void:
 		project_manager.load_project(project_name)
 
 func _on_project_data_loaded() -> void:
+	for child in row_container.get_children():
+		if child is Row:
+			child.reset_optimization()
+	# ----------------
+	
 	if _is_restoring_view:
 		# REFRESH MODE
 		_calculate_pagination()
@@ -221,9 +226,7 @@ func _on_project_data_loaded() -> void:
 		if current_page > total_pages: current_page = total_pages
 		if current_page < 1: current_page = 1
 		
-		# If we are searching, we need to re-trigger the manager
 		if is_searching:
-			# We essentially "jiggle" the filters to force a re-run on the new data
 			var active = %SearchManager.get_active_filters()
 			for k in active:
 				%SearchManager.update_filter(k, active[k])
@@ -234,7 +237,6 @@ func _on_project_data_loaded() -> void:
 		
 	else:
 		# SWITCH MODE
-		# Use Manager to clear
 		%SearchManager.clear_filters()
 		
 		is_searching = false

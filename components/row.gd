@@ -355,3 +355,13 @@ func _find_text_edit_for_path(parent: Node, target_path: String) -> TextEdit:
 		var found = _find_text_edit_for_path(child, target_path)
 		if found: return found
 	return null
+
+func reset_optimization() -> void:
+	var child_indices = get_children()
+	# Iterate over expected cell indices
+	for i in range(columns.size()):
+		var idx = 2 + (i * 2)
+		if idx < child_indices.size():
+			var cell_node = child_indices[idx]
+			# Wiping this metadata forces _update_content to rebuild the cell
+			cell_node.set_meta("current_files", null)
