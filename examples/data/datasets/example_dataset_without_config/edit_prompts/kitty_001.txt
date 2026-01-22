@@ -1,1 +1,1 @@
-Apply this pink texture to the image with an LCh Hue filter
+Apply this pink texture to the image with an LCh Hue filters

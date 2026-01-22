@@ -118,7 +118,7 @@ class TextController:
 		editor.focus_exited.connect(func(): save_if_needed("Saved"))
 
 	func _connect_signals() -> void:
-		btn_save.pressed.connect(func(): save_if_needed("Saved!"))
+		btn_save.pressed.connect(func(): save_if_needed("Saved!", true))
 		btn_search.pressed.connect(open_search.bind(false))
 		btn_replace.pressed.connect(open_search.bind(true))
 		
@@ -147,13 +147,16 @@ class TextController:
 			editor.set_meta("original_content", content)
 			editor.clear_undo_history()
 			status_label.text = "Ready"
-
-	func save_if_needed(msg: String = "Saved") -> void:
+			
+	func save_if_needed(msg: String = "Saved", force: bool = false) -> void:
 		if not wrapper.visible or not editor.has_meta("file_path"): return
-		if editor.has_meta("original_content") and editor.text == editor.get_meta("original_content"):
-			return
 		
-		# FIX: Use helper function to satisfy signal warning
+		# DIRTY CHECK
+		# We only skip if it's NOT a forced save AND content matches
+		if not force:
+			if editor.has_meta("original_content") and editor.text == editor.get_meta("original_content"):
+				return
+		
 		parent_viewer.trigger_save_request(editor.get_meta("file_path"), editor.text)
 		editor.set_meta("original_content", editor.text)
 		
@@ -233,6 +236,19 @@ func _ready() -> void:
 	btn_prev_row.pressed.connect(_nav_row.bind(-1))
 	btn_next_row.pressed.connect(_nav_row.bind(1))
 	
+	# Prevent buttons from stealing keyboard focus.
+	# This ensures Arrow Keys always go to our script, not UI navigation.
+	close_btn.focus_mode = Control.FOCUS_NONE
+	btn_prev_row.focus_mode = Control.FOCUS_NONE
+	btn_next_row.focus_mode = Control.FOCUS_NONE
+	
+	col_select_left.focus_mode = Control.FOCUS_NONE
+	col_select_right.focus_mode = Control.FOCUS_NONE
+	
+	# Also ensure images don't grab focus on click
+	img_left.focus_mode = Control.FOCUS_NONE
+	img_right.focus_mode = Control.FOCUS_NONE
+	
 	col_select_left.item_selected.connect(func(_idx): _refresh_panel(true))
 	col_select_right.item_selected.connect(func(_idx): _refresh_panel(false))
 	
@@ -268,31 +284,39 @@ func trigger_save_request(path: String, content: String) -> void:
 func _input(event: InputEvent) -> void:
 	if not visible: return
 	
-	# GLOBAL SHORTCUTS (Apply to focused editor)
+	# 1. HANDLE CANCEL / ESCAPE
 	if event.is_action_pressed("ui_cancel"):
-		# Close search if open, or close app
 		var handled = false
-		
-		# Check Left
 		if _left_controller.search_panel.visible:
 			_left_controller.close_search()
 			handled = true
-		# Check Right
 		if _right_controller.search_panel.visible:
 			_right_controller.close_search()
 			handled = true
-			
 		if not handled:
 			_close()
 		get_viewport().set_input_as_handled()
+		return
+
+	# 2. HANDLE KEY INPUTS
+	if event is InputEventKey and event.pressed:
 		
-	elif event is InputEventKey and event.pressed:
-		# Determine active controller based on focus or mouse position
+		# --- GLOBAL NAVIGATION (Arrows) ---
+		# We check this FIRST so it works anywhere (Image or Text)
+		if event.keycode == KEY_UP:
+			_handle_nav_input(-1, event)
+			return # Stop processing
+		elif event.keycode == KEY_DOWN:
+			_handle_nav_input(1, event)
+			return # Stop processing
+
+		# --- TEXT EDITOR SHORTCUTS (Ctrl+S, F, R) ---
+		# Now we check if we are actually working with text
 		var active_ctrl = _get_active_controller()
 		if not active_ctrl: return
 		
 		if event.keycode == KEY_S and event.is_command_or_control_pressed():
-			active_ctrl.save_if_needed("Saved")
+			active_ctrl.save_if_needed("Saved", true)
 			get_viewport().set_input_as_handled()
 			
 		elif event.keycode == KEY_F and event.is_command_or_control_pressed():
@@ -302,6 +326,27 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_R and event.is_command_or_control_pressed():
 			active_ctrl.open_search(true)
 			get_viewport().set_input_as_handled()
+
+# Helper function for "Hybrid Navigation"
+func _handle_nav_input(dir: int, event: InputEventKey) -> void:
+	var focus_owner = get_viewport().gui_get_focus_owner()
+	var is_typing = (focus_owner is CodeEdit or focus_owner is LineEdit)
+	var is_forcing = event.is_command_or_control_pressed() # Check for Ctrl/Cmd
+	
+	# CASE 1: Forced Navigation (Ctrl + Arrow)
+	if is_forcing:
+		_nav_row(dir)
+		get_viewport().set_input_as_handled()
+		return
+
+	# CASE 2: Context Aware (Plain Arrow)
+	if is_typing:
+		# User is typing. Do NOTHING. Let the CodeEdit move the caret.
+		return
+	else:
+		# User is not typing (focus on Image, Button, or None). Navigate Rows.
+		_nav_row(dir)
+		get_viewport().set_input_as_handled()
 
 func _get_active_controller() -> TextController:
 	# Returns the controller that owns the focused element
