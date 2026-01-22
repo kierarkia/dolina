@@ -8,14 +8,13 @@ signal request_delete_file(path: String)
 signal request_create_txt(stem: String, column: String)
 signal request_save_text(path: String, new_content: String)
 signal request_upload(stem: String, column: String)
-# NEW: Signal for when a file is dropped directly
 signal request_direct_upload(stem: String, column: String, path: String)
 
 var stem: String
 var data: Dictionary
 var columns: Array
 
-const ROW_HEIGHT = 240 
+const ROW_HEIGHT = 240
 
 # --- INNER CLASS: Custom Button that accepts files ---
 class DragDropButton extends Button:

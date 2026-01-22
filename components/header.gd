@@ -5,7 +5,7 @@ extends PanelContainer
 signal project_selected(index: int)
 signal refresh_requested
 signal settings_requested
-signal page_change_requested(direction: int) # -1 or +1
+signal page_change_requested(direction: int)
 signal page_jump_requested(page_number: int)
 
 # --- NODES ---

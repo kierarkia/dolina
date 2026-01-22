@@ -30,14 +30,14 @@ var total_pages: int = 1
 var _upload_target_info: Dictionary = {}
 
 # --- SEARCH STATE ---
-var search_filters: Dictionary = {}
 var is_searching: bool = false
 var filtered_stems: Array = []
 var last_browsing_page: int = 1
 var _is_restoring_view: bool = false
-var _current_search_version: int = 0
 
 func _ready() -> void:
+	%SearchManager.setup(project_manager)
+	%SearchManager.search_completed.connect(_on_search_completed)
 	_connect_signals()
 	
 	# Setup UI connections
@@ -98,9 +98,7 @@ func _ready() -> void:
 	# 1. Critical Missing (No bootstrap, no default folder)
 	if project_manager.current_path_status == project_manager.PathStatus.BROKEN_MISSING:
 		_show_error_state()
-		if project_manager.is_fresh_install:
-			pass 
-		return 
+		return
 		
 	# 2. Custom Path Missing
 	if project_manager.current_path_status == project_manager.PathStatus.BROKEN_CUSTOM_FALLBACK:
@@ -112,7 +110,6 @@ func _ready() -> void:
 	# Listen for resize logic
 	get_tree().root.size_changed.connect(_on_window_resized)
 	%ResizeTimer.timeout.connect(_update_ui)
-	%SearchTimer.timeout.connect(_perform_search)
 	get_tree().set_auto_accept_quit(false)
 	
 func _show_error_state() -> void:
@@ -203,26 +200,28 @@ func _on_project_selected(_index: int) -> void:
 
 func _on_project_data_loaded() -> void:
 	if _is_restoring_view:
-		# REFRESH MODE: Keep current_page and filters
-		# 1. Recalculate totals (in case files were added/removed externally)
+		# REFRESH MODE
 		_calculate_pagination()
 		
-		# 2. If we were on page 10 but now there are only 5 pages, clamp it.
 		if current_page > total_pages: current_page = total_pages
 		if current_page < 1: current_page = 1
 		
-		# 3. Refresh UI (Re-run search if needed)
+		# If we are searching, we need to re-trigger the manager
 		if is_searching:
-			_perform_search()
+			# We essentially "jiggle" the filters to force a re-run on the new data
+			var active = %SearchManager.get_active_filters()
+			for k in active:
+				%SearchManager.update_filter(k, active[k])
 		else:
 			_update_ui()
 			
-		# Reset the flag
 		_is_restoring_view = false
 		
 	else:
-		# SWITCH MODE: Reset everything (The old logic)
-		search_filters.clear()
+		# SWITCH MODE
+		# Use Manager to clear
+		%SearchManager.clear_filters()
+		
 		is_searching = false
 		last_browsing_page = 1
 		current_page = 1
@@ -351,55 +350,48 @@ func _calculate_pagination() -> void:
 func _update_ui() -> void:
 	var col_width = _calculate_column_width()
 	
+	# GET FILTERS FROM MANAGER
+	var active_filters = %SearchManager.get_active_filters()
+	
 	# Clear existing headers
 	for child in column_headers.get_children():
 		child.queue_free()
 	
-	# --- 1. ID COLUMN (Fixed Left) ---
-	
-	# Create a VBox to stack "ID" label above search
+	# --- 1. ID COLUMN ---
 	var id_vbox = VBoxContainer.new()
 	id_vbox.custom_minimum_size.x = 150
-	id_vbox.alignment = BoxContainer.ALIGNMENT_END # Push content to bottom if needed
+	id_vbox.alignment = BoxContainer.ALIGNMENT_END 
 	
-	# ID Label
 	var id_label = Label.new()
 	id_label.text = "ID"
 	id_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	# Apply your theme color for consistency
 	id_label.label_settings = LabelSettings.new()
 	id_label.label_settings.font_color = Color("41f095")
 	id_vbox.add_child(id_label)
 	
-	# ID Search Input
 	var id_search = LineEdit.new()
 	id_search.placeholder_text = "Search ID..."
 	id_search.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if search_filters.has("ID"): 
-		id_search.text = search_filters["ID"]
 	
-	# Connect signal
+	# USE LOCAL VARIABLE
+	if active_filters.has("ID"): 
+		id_search.text = active_filters["ID"]
+	
 	id_search.text_changed.connect(_on_search_text_changed.bind("ID"))
-	
 	id_vbox.add_child(id_search)
 	column_headers.add_child(id_vbox)
 	
-	# Separator after ID
 	var sep1 = VSeparator.new()
 	sep1.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column_headers.add_child(sep1)
 
-	# --- 2. CONTENT COLUMNS (Dynamic) ---
-	
+	# --- 2. CONTENT COLUMNS ---
 	for col in project_manager.current_columns:
-		# Main container for the column header (Vertical Stack)
 		var col_container = VBoxContainer.new()
 		col_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col_container.custom_minimum_size.x = col_width
-		# Ensure the VBox fills the available height in the header bar
 		col_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		
-		# --- ROW 1: TITLE ---
 		var label = Label.new()
 		label.text = col.to_upper()
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -407,15 +399,12 @@ func _update_ui() -> void:
 		label.label_settings.font_color = Color("41f095")
 		col_container.add_child(label)
 		
-		# --- ROW 2: CONTROLS (Buttons + Search) ---
 		var controls_hbox = HBoxContainer.new()
 		controls_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		controls_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 		
-		# 1. Open Folder Button
 		var folder_btn = Button.new()
 		folder_btn.text = "📂"
-		folder_btn.tooltip_text = "Open in File Explorer"
 		folder_btn.focus_mode = Control.FOCUS_NONE
 		folder_btn.flat = true
 		folder_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -426,10 +415,8 @@ func _update_ui() -> void:
 		)
 		controls_hbox.add_child(folder_btn)
 		
-		# 2. Fill Button
 		var flash_btn = Button.new()
 		flash_btn.text = "📄"
-		flash_btn.tooltip_text = "Bulk populate empty rows in this column with .txt files" 
 		flash_btn.focus_mode = Control.FOCUS_NONE
 		flash_btn.flat = true
 		flash_btn.modulate = Color("41f095") 
@@ -437,22 +424,20 @@ func _update_ui() -> void:
 		flash_btn.pressed.connect(_handle_bulk_populate.bind(col))
 		controls_hbox.add_child(flash_btn)
 		
-		# 3. Search Bar
 		var col_search = LineEdit.new()
 		col_search.placeholder_text = "Search..."
 		col_search.size_flags_horizontal = SIZE_EXPAND_FILL
-		if search_filters.has(col): 
-			col_search.text = search_filters[col]
+		
+		# USE LOCAL VARIABLE
+		if active_filters.has(col): 
+			col_search.text = active_filters[col]
+			
 		col_search.text_changed.connect(_on_search_text_changed.bind(col))
 		controls_hbox.add_child(col_search)
 		
-		# Add controls row to main column container
 		col_container.add_child(controls_hbox)
-		
-		# Add column container to the main header bar
 		column_headers.add_child(col_container)
 		
-		# Separator between columns
 		var sep2 = VSeparator.new()
 		sep2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		column_headers.add_child(sep2)
@@ -466,7 +451,9 @@ func _render_grid(col_width: float = -1.0) -> void:
 	
 	var dataset = project_manager.current_dataset
 	var source_list = []
-	if is_searching: 
+	
+	# Check Manager status instead of local variable
+	if %SearchManager.is_active(): 
 		source_list = filtered_stems
 	else: 
 		source_list = dataset.keys()
@@ -519,40 +506,13 @@ func _on_row_request_image(stem: String, clicked_path: String) -> void:
 # --- SEARCH LOGIC ---
 
 func _on_search_text_changed(new_text: String, col_identifier: String) -> void:
-	if not is_searching and search_filters.is_empty():
+	# 1. Capture the page ONLY if we are transitioning from "Not Searching" to "Searching".
+	# We check if the manager is inactive (filters are empty) AND we are typing actual text.
+	if not %SearchManager.is_active() and new_text.strip_edges() != "":
 		last_browsing_page = current_page
-	if new_text.strip_edges() == "":
-		search_filters.erase(col_identifier)
-	else:
-		search_filters[col_identifier] = new_text.to_lower()
-	%SearchTimer.start()
-
-func _perform_search() -> void:
-	# 1. Handle Empty State (Fast path - no thread needed)
-	if search_filters.is_empty():
-		is_searching = false
-		current_page = last_browsing_page
-		_calculate_pagination()
-		_update_ui()
-		return
-	
-	# 2. Setup Thread Logic
-	is_searching = true
-	_current_search_version += 1
-	var this_version = _current_search_version
-	
-	# Snapshot the data we need.
-	# Note: Dictionaries are passed by reference, but we duplicate the keys list
-	# so we have a stable list to iterate over.
-	var dataset = project_manager.current_dataset
-	var stems_to_search = dataset.keys()
-	var filters_snapshot = search_filters.duplicate()
-	
-	# 3. Dispatch to WorkerThreadPool
-	# We bind the 'this_version' so the thread knows its own ID
-	WorkerThreadPool.add_task(
-		_execute_threaded_search.bind(this_version, stems_to_search, dataset, filters_snapshot)
-	)
+		
+	# 2. Just tell the manager. It handles state, filters, and timers automatically.
+	%SearchManager.update_filter(col_identifier, new_text)
 
 # --- INPUT & HELPERS ---
 
@@ -624,78 +584,20 @@ func _perform_shutdown_cleanup() -> void:
 	if saved_count > 0:
 		print("Graceful Shutdown: Forced save on %d files." % saved_count)
 
-func _execute_threaded_search(task_version: int, stems: Array, dataset: Dictionary, filters: Dictionary) -> void:
-	var results: Array = []
-	
-	for i in range(stems.size()):
-		# A. CANCELLATION CHECK
-		# Every 20 items, check if the main thread has started a NEW search.
-		# If so, stop working immediately to save CPU/Disk usage.
-		if i % 20 == 0:
-			if task_version != _current_search_version:
-				return 
-
-		var stem = stems[i]
-		
-		# B. SAFETY CHECK
-		# Because 'dataset' is a reference, the main thread might have deleted 
-		# a file while we were searching.
-		var row_data = dataset.get(stem)
-		if row_data == null: continue
-		
-		# C. MATCHING LOGIC
-		var match_all = true
-		
-		for col_key in filters:
-			var query = filters[col_key]
-			
-			if col_key == "ID":
-				if not stem.to_lower().contains(query):
-					match_all = false
-					break
-			else:
-				var files = row_data.get(col_key, [])
-				var col_match = false
-				
-				# 1. Check Filenames (Fast)
-				for f_path in files:
-					if f_path.get_file().to_lower().contains(query):
-						col_match = true
-						break
-				
-				# 2. Check File Content (Slow - Disk I/O)
-				if not col_match:
-					for f_path in files:
-						var ext = f_path.get_extension().to_lower()
-						if ext in ["txt", "md", "json"]:
-							# This is the blocking call that used to freeze the UI
-							var f = FileAccess.open(f_path, FileAccess.READ)
-							if f and f.get_as_text().to_lower().contains(query):
-								col_match = true
-								break
-				
-				if not col_match:
-					match_all = false
-					break
-		
-		if match_all:
-			results.append(stem)
-
-	# D. RETURN TO MAIN THREAD
-	# We cannot touch the UI from here. call_deferred pushes this back to the main loop.
-	call_deferred("_on_search_complete", results, task_version)
-
-# Back on the Main Thread
-func _on_search_complete(results: Array, task_version: int) -> void:
-	# Verify this result is still fresh
-	if task_version != _current_search_version:
-		return
-		
+func _on_search_completed(results: Array) -> void:
+	# 1. Update the results list
 	filtered_stems = results
-	filtered_stems.sort()
 	
-	# Update UI
-	current_page = 1
+	# 2. Check if we are currently "in search mode"
+	is_searching = %SearchManager.is_active()
+	
+	# 3. Handle Page Reset vs Restore
+	if not is_searching:
+		current_page = last_browsing_page
+	else:
+		current_page = 1
+		
+	# 4. Refresh UI
 	_calculate_pagination()
 	_render_grid()
 	_update_pagination_labels()

@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://cqyl562ctjiib"]
+[gd_scene load_steps=12 format=3 uid="uid://cqyl562ctjiib"]
 
 [ext_resource type="Theme" uid="uid://duyeylfni0bvn" path="res://assets/DolinaTheme.tres" id="1_cmtxc"]
 [ext_resource type="Script" uid="uid://badu0bax2jj71" path="res://main/main.gd" id="1_qv31u"]
@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://cmjv3d01bnurn" path="res://components/EmptyState.tscn" id="6_7a1mn"]
 [ext_resource type="Script" uid="uid://ck0mkthqv2w5j" path="res://scripts/project_manager.gd" id="6_qtrhv"]
 [ext_resource type="PackedScene" uid="uid://dt7qh2itdwrcl" path="res://components/TextEditor.tscn" id="9_m4geg"]
+[ext_resource type="Script" uid="uid://bi81p3w8tgpcb" path="res://scripts/search_manager.gd" id="10_m4geg"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -50,7 +51,6 @@ theme_override_constants/separation = 5
 [node name="Header" parent="MarginContainer/VBox" instance=ExtResource("3_7a1mn")]
 unique_name_in_owner = true
 layout_mode = 2
-mouse_filter = 2
 
 [node name="HSeparator" type="HSeparator" parent="MarginContainer/VBox"]
 layout_mode = 2
@@ -105,10 +105,9 @@ unique_name_in_owner = true
 wait_time = 0.25
 one_shot = true
 
-[node name="SearchTimer" type="Timer" parent="."]
+[node name="SearchManager" type="Node2D" parent="."]
 unique_name_in_owner = true
-wait_time = 0.3
-one_shot = true
+script = ExtResource("10_m4geg")
 
 [node name="ProjectManager" type="Node" parent="."]
 unique_name_in_owner = true
