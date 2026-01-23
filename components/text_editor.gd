@@ -181,11 +181,36 @@ func _perform_search(reverse: bool) -> void:
 	if query.is_empty(): 
 		match_label.text = ""
 		return
-	var flags = 2
-	if reverse: flags += 1
+	
+	var flags: int = 0
+	if reverse: 
+		flags += CodeEdit.SEARCH_BACKWARDS
+	
 	var line = editor.get_caret_line()
 	var col = editor.get_caret_column()
+	
+	# Handle backward search logic
+	if reverse and editor.has_selection():
+		# Start from the beginning of the selection
+		line = editor.get_selection_from_line()
+		col = editor.get_selection_from_column()
+		
+		# Step back 1 character to avoid finding the current match again
+		col -= 1
+		
+		# Handle moving to the previous line if we stepped back past the start
+		if col < 0:
+			line -= 1
+			if line >= 0:
+				col = editor.get_line(line).length()
+			else:
+				# We are at the very start of the file (0,0)
+				# Ensure we force a "Not Found" state so the wrap logic takes over
+				col = -1 
+
+	# If col is -1 (start of file reached), search returns (-1, -1) automatically
 	var result = editor.search(query, flags, line, col)
+	
 	if result.x != -1:
 		editor.select(result.y, result.x, result.y, result.x + query.length())
 		editor.set_caret_line(result.y)
@@ -194,8 +219,12 @@ func _perform_search(reverse: bool) -> void:
 		match_label.text = "Found"
 		match_label.modulate = Color.WHITE
 	else:
+		# WRAP LOGIC
 		var start_line = 0 if not reverse else editor.get_line_count() - 1
-		var start_col = 0 if not reverse else editor.get_line_width(start_line)
+		var start_col = 0
+		if reverse:
+			start_col = editor.get_line(start_line).length()
+		
 		var retry = editor.search(query, flags, start_line, start_col)
 		if retry.x != -1:
 			editor.select(retry.y, retry.x, retry.y, retry.x + query.length())

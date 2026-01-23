@@ -193,14 +193,35 @@ class TextController:
 		var query = input_find.text
 		if query.is_empty(): return
 		
-		var flags = 2
-		if reverse: flags += 1
+		# Explicit int type
+		var flags: int = 0
+		if reverse: 
+			flags += CodeEdit.SEARCH_BACKWARDS
 		
-		var res = editor.search(query, flags, editor.get_caret_line(), editor.get_caret_column())
+		var line = editor.get_caret_line()
+		var col = editor.get_caret_column()
+
+		# Step back logic
+		if reverse and editor.has_selection():
+			line = editor.get_selection_from_line()
+			col = editor.get_selection_from_column()
+			col -= 1
+			
+			if col < 0:
+				line -= 1
+				if line >= 0:
+					col = editor.get_line(line).length()
+				else:
+					col = -1
+		
+		var res = editor.search(query, flags, line, col)
 		
 		if res.x == -1: # Wrap around
 			var start_line = 0 if not reverse else editor.get_line_count() - 1
-			var start_col = 0 if not reverse else editor.get_line_width(start_line)
+			var start_col = 0
+			if reverse:
+				start_col = editor.get_line(start_line).length()
+				
 			res = editor.search(query, flags, start_line, start_col)
 			status_label.text = "Wrapped"
 		
