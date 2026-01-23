@@ -193,8 +193,8 @@ class TextController:
 		var query = input_find.text
 		if query.is_empty(): return
 		
-		var flags = 2 # Match Case off, Words off
-		if reverse: flags += 1 # Add Backwards flag
+		var flags = 2
+		if reverse: flags += 1
 		
 		var res = editor.search(query, flags, editor.get_caret_line(), editor.get_caret_column())
 		
@@ -225,12 +225,17 @@ class TextController:
 	func replace_all() -> void:
 		var query = input_find.text
 		if query.is_empty(): return
+		
 		var new_text = editor.text.replace(query, input_replace.text)
+		
 		if new_text != editor.text:
 			editor.text = new_text
-			save_if_needed("Replaced All")
+			
+			status_label.text = "Replaced All"
+			
+			editor.text_changed.emit()
 
-# ---------------------------------------------------------
+# ---
 
 func _ready() -> void:
 	hide()

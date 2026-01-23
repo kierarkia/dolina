@@ -181,8 +181,8 @@ func _perform_search(reverse: bool) -> void:
 	if query.is_empty(): 
 		match_label.text = ""
 		return
-	var flags = 2 
-	if reverse: flags += 1 
+	var flags = 2
+	if reverse: flags += 1
 	var line = editor.get_caret_line()
 	var col = editor.get_caret_column()
 	var result = editor.search(query, flags, line, col)
@@ -222,11 +222,19 @@ func _replace_all() -> void:
 	var query = find_input.text
 	var replacement = replace_input.text
 	if query.is_empty(): return
+	
 	var text_content = editor.text
 	var new_text = text_content.replace(query, replacement)
+	
 	if text_content != new_text:
 		editor.text = new_text
 		status_label.text = "Replaced All"
-		_manual_save()
+		
+		if _autosave_enabled:
+			_autosave_timer.start()
+			status_label.text = "Replaced (Autosave Pending)"
+		else:
+			status_label.text = "Replaced (Unsaved)"
+			
 	else:
 		match_label.text = "Nothing to replace"
