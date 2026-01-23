@@ -2,7 +2,7 @@ class_name ThumbnailLoader
 extends Node
 
 # --- CONFIG ---
-static var _cache_limit_bytes: int = 512 * 1024 * 1024 
+static var _cache_limit_bytes: int = 128 * 1024 * 1024 
 static var _current_cache_size: int = 0
 
 # --- DATA ---
