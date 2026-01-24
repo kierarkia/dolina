@@ -49,7 +49,7 @@ A basic dataset structure looks like this:
 
 ```
 
-![without_config_screenshot](readme_assets/readme_assets/without_config_screenshot.jpg)
+![without_config_screenshot](readme_assets/without_config_screenshot.jpg)
 
 
 ### 2. Config Mode
