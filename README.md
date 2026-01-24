@@ -6,7 +6,7 @@
 
 > **Etymology:** *Dolina* is the Polish word for "valley." In the context of AI training, it represents the goal of Gradient Descent: navigating the loss landscape to find the deepest valley (the lowest loss).
 
-Dolina is a desktop application built with Godot. It helps manage local datasets by visually aligning files based on their filenames. It fills the gap between file browsers (which are suboptimal for datasets) and database tools (which are too complex for single users).
+Dolina is a desktop application built with Godot. It helps manage local datasets by visually aligning files based on their filenames. It fills the gap between file browsers (which are suboptimal for datasets) and database tools (which are too complex for casual users).
 
 ## Video Showcase
 
