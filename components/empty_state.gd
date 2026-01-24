@@ -4,7 +4,7 @@ extends CenterContainer
 signal examples_imported
 
 # Use the RAW version of the link for direct download
-const DOWNLOAD_URL = "https://github.com/archgoddessGD/dolina/raw/main/examples/data/datasets/dolina_examples.zip"
+const DOWNLOAD_URL = "https://github.com/kierarkia/dolina/raw/main/examples/data/datasets/dolina_examples.zip"
 
 @onready var download_btn: Button = %DownloadBtn
 @onready var progress_bar: ProgressBar = %ProgressBar
