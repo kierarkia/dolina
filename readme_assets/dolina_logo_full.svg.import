@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d3har7sul8j63"
-path="res://.godot/imported/dolina_logo_full.svg-5b30378c5a6b5be44c66971734feb45d.ctex"
+path="res://.godot/imported/dolina_logo_full.svg-812a9f6e0ea75d8a4da8abb122b0d125.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/dolina_logo_full.svg"
-dest_files=["res://.godot/imported/dolina_logo_full.svg-5b30378c5a6b5be44c66971734feb45d.ctex"]
+source_file="res://readme_assets/dolina_logo_full.svg"
+dest_files=["res://.godot/imported/dolina_logo_full.svg-812a9f6e0ea75d8a4da8abb122b0d125.ctex"]
 
 [params]
 
