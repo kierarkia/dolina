@@ -21,6 +21,7 @@ const WelcomeScene = preload("res://components/WelcomeScreen.tscn")
 @onready var empty_state: EmptyState = %EmptyState
 @onready var text_editor: TextEditor = %TextEditor
 @onready var side_by_side_viewer: SideBySideViewer = %SideBySideViewer
+@onready var automation_dashboard: AutomationDashboard = %AutomationDashboard
 
 # --- DATA CONTROLLER ---
 @onready var project_manager: ProjectManager = %ProjectManager
@@ -52,7 +53,7 @@ func _ready() -> void:
 		_scan_and_populate_projects()
 		_show_toast("Examples Loaded!")
 	)
-
+	
 	# Connect the SideBySideViewer signals
 	side_by_side_viewer.request_save_text.connect(func(path, content):
 		# 1. Save to Disk
@@ -134,6 +135,32 @@ func _ready() -> void:
 	get_tree().root.size_changed.connect(_on_window_resized)
 	%ResizeTimer.timeout.connect(_update_ui)
 	get_tree().set_auto_accept_quit(false)
+	
+	# Inject ProjectManager into Automation
+	automation_dashboard.setup(project_manager)
+	
+	# Connect Header Button (assuming you added the signal in Header)
+	header.automation_requested.connect(func():
+		automation_dashboard.show()
+		automation_dashboard.move_to_front() # Ensure it's on top
+	)
+	
+	automation_dashboard.request_reload.connect(func():
+		_is_restoring_view = true
+		project_manager.load_project(project_manager.current_project_name)
+	)
+	
+	automation_dashboard.batch_started.connect(func():
+		header.set_automation_mode(true)
+	)
+	
+	automation_dashboard.batch_ended.connect(func():
+		header.set_automation_mode(false)
+	)
+	
+	automation_dashboard.progress_changed.connect(func(curr, total):
+		header.update_automation_progress(curr, total)
+	)
 	
 func _show_error_state() -> void:
 	column_headers.hide()

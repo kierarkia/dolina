@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://cqyl562ctjiib"]
+[gd_scene load_steps=14 format=3 uid="uid://cqyl562ctjiib"]
 
 [ext_resource type="Theme" uid="uid://duyeylfni0bvn" path="res://assets/DolinaTheme.tres" id="1_cmtxc"]
 [ext_resource type="Script" uid="uid://badu0bax2jj71" path="res://main/main.gd" id="1_qv31u"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" uid="uid://ck0mkthqv2w5j" path="res://scripts/project_manager.gd" id="6_qtrhv"]
 [ext_resource type="PackedScene" uid="uid://c8oodc6xy0j4g" path="res://components/SideBySideViewer.tscn" id="9_8bq6g"]
 [ext_resource type="PackedScene" uid="uid://dt7qh2itdwrcl" path="res://components/TextEditor.tscn" id="9_m4geg"]
+[ext_resource type="PackedScene" uid="uid://bbkpe3wert27p" path="res://components/automation/AutomationDashboard.tscn" id="10_50616"]
 [ext_resource type="Script" uid="uid://bi81p3w8tgpcb" path="res://scripts/search_manager.gd" id="10_m4geg"]
 
 [node name="Main" type="Control"]
@@ -100,6 +101,11 @@ layout_mode = 1
 
 [node name="SideBySideViewer" parent="." instance=ExtResource("9_8bq6g")]
 unique_name_in_owner = true
+layout_mode = 1
+
+[node name="AutomationDashboard" parent="." instance=ExtResource("10_50616")]
+unique_name_in_owner = true
+visible = false
 layout_mode = 1
 
 [node name="SafetyDialog" parent="." instance=ExtResource("5_tv7ag")]

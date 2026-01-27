@@ -75,11 +75,14 @@ func setup(_stem: String, _data: Dictionary, _columns: Array, _cell_width: float
 	data = _data
 	columns = _columns
 	
-	# We expect: 1 Label + 1 Sep + (Cols * 2) children
 	var expected_child_count = 2 + (columns.size() * 2)
 	
+	# FIX: If the structure doesn't match, we must rebuild IMMEDIATELY.
+	# We use remove_child() so they are detached from the tree instantly,
+	# preventing index confusion during the rebuild.
 	if get_child_count() != expected_child_count:
 		for child in get_children():
+			remove_child(child)
 			child.queue_free()
 		_build_structure()
 	

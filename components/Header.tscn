@@ -80,6 +80,33 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "▶"
 
+[node name="AutoWrapper" type="MarginContainer" parent="MarginContainer/HBox/TopRightHBox"]
+layout_mode = 2
+
+[node name="AutoBtn" type="Button" parent="MarginContainer/HBox/TopRightHBox/AutoWrapper"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(111, 0)
+layout_mode = 2
+text = "Automation"
+
+[node name="AutoProgressBtn" type="Button" parent="MarginContainer/HBox/TopRightHBox/AutoWrapper"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(111, 0)
+layout_mode = 2
+
+[node name="AutoProgress" type="ProgressBar" parent="MarginContainer/HBox/TopRightHBox/AutoWrapper/AutoProgressBtn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(111, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+step = 1.0
+
 [node name="SettingsBtn" type="Button" parent="MarginContainer/HBox/TopRightHBox"]
 unique_name_in_owner = true
 layout_mode = 2

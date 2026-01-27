@@ -440,3 +440,56 @@ func load_config() -> Dictionary:
 	
 func get_column_path(col_name: String) -> String:
 	return _column_path_map.get(col_name, "")
+
+func register_new_column(col_name: String) -> void:
+	if current_project_name == "": return
+
+	var proj_path = datasets_root_path + "/" + current_project_name
+	var config_path = proj_path + "/" + CONFIG_FILENAME
+	
+	# 1. Update Memory & Folders
+	var new_folder_path = proj_path + "/" + col_name
+	if not DirAccess.dir_exists_absolute(new_folder_path):
+		DirAccess.make_dir_recursive_absolute(new_folder_path)
+		
+	_column_path_map[col_name] = new_folder_path
+	if not current_columns.has(col_name):
+		current_columns.append(col_name)
+		current_columns.sort()
+	
+	# 2. Update Config File
+	var data = {}
+	
+	# Safe Read
+	if FileAccess.file_exists(config_path):
+		var f_read = FileAccess.open(config_path, FileAccess.READ)
+		if f_read:
+			var json = JSON.new()
+			var err = json.parse(f_read.get_as_text())
+			if err == OK:
+				data = json.data
+			f_read.close()
+	
+	# Initialize Structure
+	if not data.has("columns") or not data["columns"] is Array:
+		data["columns"] = []
+	
+	# Check for duplicates to prevent bloating the file
+	var exists = false
+	for col in data["columns"]:
+		if col.get("name") == col_name:
+			exists = true
+			break
+	
+	if not exists:
+		data["columns"].append({
+			"name": col_name,
+			"path": col_name
+		})
+		
+		# Safe Write
+		var f_write = FileAccess.open(config_path, FileAccess.WRITE)
+		if f_write:
+			f_write.store_string(JSON.stringify(data, "\t"))
+			f_write.close()
+			print("Config updated: Added ", col_name)

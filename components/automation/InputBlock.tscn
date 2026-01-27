@@ -1,0 +1,42 @@
+[gd_scene load_steps=2 format=3 uid="uid://didygs42fbu3l"]
+
+[ext_resource type="Script" uid="uid://c1c06yej8s1mm" path="res://components/automation/input_block.gd" id="1_buor0"]
+
+[node name="InputBlock" type="PanelContainer"]
+script = ExtResource("1_buor0")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="DragHandle" type="Label" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "   ::  "
+
+[node name="TypeSelect" type="OptionButton" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+item_count = 3
+popup/item_0/text = "Static Text"
+popup/item_0/id = 0
+popup/item_1/text = "Text from Column"
+popup/item_1/id = 1
+popup/item_2/text = "Image from Column"
+popup/item_2/id = 2
+
+[node name="ValueInput" type="TextEdit" parent="HBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+size_flags_horizontal = 3
+wrap_mode = 1
+
+[node name="ColumnSelect" type="OptionButton" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BtnDelete" type="Button" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "X"

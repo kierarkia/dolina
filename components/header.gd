@@ -5,6 +5,7 @@ extends PanelContainer
 signal project_selected(index: int)
 signal refresh_requested
 signal settings_requested
+signal automation_requested
 signal page_change_requested(direction: int)
 signal page_jump_requested(page_number: int)
 
@@ -12,6 +13,9 @@ signal page_jump_requested(page_number: int)
 @onready var project_select: OptionButton = %ProjectSelect
 @onready var refresh_btn: Button = %RefreshBtn
 @onready var settings_btn: Button = %SettingsBtn
+@onready var auto_btn: Button = %AutoBtn
+@onready var auto_progress: ProgressBar = %AutoProgress
+@onready var auto_progress_btn: Button = %AutoProgressBtn
 @onready var prev_btn: Button = %PrevBtn
 @onready var next_btn: Button = %NextBtn
 @onready var page_input: LineEdit = %PageInput
@@ -21,6 +25,12 @@ func _ready() -> void:
 	# Internal wiring
 	refresh_btn.pressed.connect(func(): refresh_requested.emit())
 	settings_btn.pressed.connect(func(): settings_requested.emit())
+	
+	if auto_btn:
+		auto_btn.pressed.connect(func(): automation_requested.emit())
+	if auto_progress_btn:
+		auto_progress_btn.pressed.connect(func(): automation_requested.emit())
+	
 	prev_btn.pressed.connect(func(): page_change_requested.emit(-1))
 	next_btn.pressed.connect(func(): page_change_requested.emit(1))
 	
@@ -28,7 +38,6 @@ func _ready() -> void:
 	
 	page_input.text_submitted.connect(_on_page_input_submitted)
 	
-	# Optional: Release focus when page input is done
 	page_input.focus_exited.connect(func(): page_input.release_focus())
 
 # --- PUBLIC API (Inputs from Main) ---
@@ -60,6 +69,18 @@ func update_pagination(current: int, total: int) -> void:
 func get_selected_project_name() -> String:
 	if project_select.selected == -1: return ""
 	return project_select.get_item_text(project_select.selected)
+	
+func set_automation_mode(is_running: bool) -> void:
+	if is_running:
+		auto_btn.hide()
+		auto_progress_btn.show() # Shows the button AND the bar inside it
+	else:
+		auto_btn.show()
+		auto_progress_btn.hide()
+
+func update_automation_progress(current: int, total: int) -> void:
+	auto_progress.max_value = total
+	auto_progress.value = current
 
 # --- INTERNAL HELPERS ---
 
