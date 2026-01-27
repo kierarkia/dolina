@@ -81,6 +81,7 @@ layout_mode = 2
 [node name="ColSelectLeft" type="OptionButton" parent="MarginContainer/VBoxContainer/SplitView/LeftPanel/Header"]
 unique_name_in_owner = true
 layout_mode = 2
+tooltip_text = "Select Column"
 
 [node name="LabelLeft" type="Label" parent="MarginContainer/VBoxContainer/SplitView/LeftPanel/Header"]
 layout_mode = 2
@@ -185,6 +186,7 @@ layout_mode = 2
 [node name="ColSelectRight" type="OptionButton" parent="MarginContainer/VBoxContainer/SplitView/RightPanel/Header"]
 unique_name_in_owner = true
 layout_mode = 2
+tooltip_text = "Select Column"
 
 [node name="LabelRight" type="Label" parent="MarginContainer/VBoxContainer/SplitView/RightPanel/Header"]
 layout_mode = 2
@@ -292,6 +294,7 @@ alignment = 1
 [node name="BtnPrevRow" type="Button" parent="SplitHandleNav/HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+tooltip_text = "Previous Row"
 text = "▲"
 
 [node name="PositionLabel" type="Label" parent="SplitHandleNav/HBoxContainer"]
@@ -303,4 +306,5 @@ horizontal_alignment = 1
 [node name="BtnNextRow" type="Button" parent="SplitHandleNav/HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+tooltip_text = "Next Row"
 text = "▼"

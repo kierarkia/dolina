@@ -414,7 +414,7 @@ func _create_file_view(parent: Node, file_path: String, col_name: String, max_wi
 		
 		var expand_btn = Button.new()
 		expand_btn.text = "⤢"
-		expand_btn.tooltip_text = "Expand Editor"
+		expand_btn.tooltip_text = "Expand Text Editor"
 		expand_btn.pressed.connect(func():
 			if autosave_timer: autosave_timer.stop()
 			emit_signal("request_expanded_text", file_path, text_edit.text)

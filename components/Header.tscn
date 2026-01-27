@@ -23,7 +23,7 @@ theme_override_constants/separation = 9
 [node name="Logo" type="TextureRect" parent="MarginContainer/HBox"]
 custom_minimum_size = Vector2(124, 46)
 layout_mode = 2
-mouse_filter = 2
+tooltip_text = "You Look Pretty Today"
 texture = ExtResource("1_ceos5")
 expand_mode = 2
 stretch_mode = 5
@@ -35,11 +35,13 @@ mouse_filter = 2
 [node name="ProjectSelect" type="OptionButton" parent="MarginContainer/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
+tooltip_text = "Select Dataset"
 
 [node name="RefreshBtn" type="Button" parent="MarginContainer/HBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
+tooltip_text = "Refresh Columns and Rows"
 text = "Refresh ↻"
 
 [node name="MiddleExpandSpacer" type="Control" parent="MarginContainer/HBox"]
@@ -62,22 +64,27 @@ mouse_filter = 2
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+tooltip_text = "Previous Page"
 text = "◀"
 
 [node name="PageInput" type="LineEdit" parent="MarginContainer/HBox/TopRightHBox/PaginationPanel/PaginationHBox"]
 unique_name_in_owner = true
 layout_mode = 2
+tooltip_text = "Current Page Number (Input)"
 alignment = 1
 
 [node name="TotalLabel" type="Label" parent="MarginContainer/HBox/TopRightHBox/PaginationPanel/PaginationHBox"]
 unique_name_in_owner = true
 layout_mode = 2
+tooltip_text = "Total Pages"
+mouse_filter = 1
 text = "/ 1"
 
 [node name="NextBtn" type="Button" parent="MarginContainer/HBox/TopRightHBox/PaginationPanel/PaginationHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+tooltip_text = "Next Page"
 text = "▶"
 
 [node name="AutoWrapper" type="MarginContainer" parent="MarginContainer/HBox/TopRightHBox"]
@@ -87,6 +94,7 @@ layout_mode = 2
 unique_name_in_owner = true
 custom_minimum_size = Vector2(111, 0)
 layout_mode = 2
+tooltip_text = "Automated Captioning"
 text = "Automation"
 
 [node name="AutoProgressBtn" type="Button" parent="MarginContainer/HBox/TopRightHBox/AutoWrapper"]
@@ -110,4 +118,5 @@ step = 1.0
 [node name="SettingsBtn" type="Button" parent="MarginContainer/HBox/TopRightHBox"]
 unique_name_in_owner = true
 layout_mode = 2
+tooltip_text = "Settings"
 icon = ExtResource("2_jo6jo")
