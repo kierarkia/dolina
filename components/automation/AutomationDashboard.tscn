@@ -95,7 +95,10 @@ unique_name_in_owner = true
 layout_mode = 2
 placeholder_text = "New or Existing Column Name..."
 
-[node name="ResumeCheck" type="CheckBox" parent="MarginContainer/MainLayout/ConfigPanel"]
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer/MainLayout/ConfigPanel"]
+layout_mode = 2
+
+[node name="ResumeCheck" type="CheckBox" parent="MarginContainer/MainLayout/ConfigPanel/BoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Only process empty rows (Resume)"
@@ -105,6 +108,115 @@ layout_mode = 2
 
 [node name="PreviewPanel" type="VBoxContainer" parent="MarginContainer/MainLayout"]
 custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
+
+[node name="ApiSettingsLabel" type="Label" parent="MarginContainer/MainLayout/PreviewPanel"]
+layout_mode = 2
+text = "API Settings"
+
+[node name="SettingsGrid" type="HBoxContainer" parent="MarginContainer/MainLayout/PreviewPanel"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="TempContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TempLabel" type="Label" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid/TempContainer"]
+layout_mode = 2
+text = "Temperature"
+
+[node name="TempInput" type="SpinBox" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid/TempContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 2.0
+step = 0.05
+value = 0.7
+
+[node name="MaxTokensContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MaxTokensLabel" type="Label" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid/MaxTokensContainer"]
+layout_mode = 2
+text = "Max Tokens"
+
+[node name="MaxTokensInput" type="SpinBox" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid/MaxTokensContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 512.0
+max_value = 131072.0
+step = 512.0
+value = 4096.0
+allow_greater = true
+
+[node name="WaitContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="WaitLabel" type="Label" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid/WaitContainer"]
+layout_mode = 2
+text = "Wait (sec)"
+
+[node name="WaitInput" type="SpinBox" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid/WaitContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Time to wait between requests"
+max_value = 600.0
+step = 0.1
+value = 0.1
+
+[node name="SettingsGrid2" type="HBoxContainer" parent="MarginContainer/MainLayout/PreviewPanel"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="TimeoutContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid2"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TimeoutLabel" type="Label" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid2/TimeoutContainer"]
+layout_mode = 2
+text = "Timeout (sec)"
+
+[node name="TimeoutInput" type="SpinBox" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid2/TimeoutContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Time before a request is forcibly skipped"
+min_value = 30.0
+max_value = 600.0
+value = 120.0
+
+[node name="RetriesContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid2"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RetriesLabel" type="Label" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid2/RetriesContainer"]
+layout_mode = 2
+text = "Retry Rounds"
+
+[node name="RetriesInput" type="SpinBox" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid2/RetriesContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Number of retries on failed requests (retries happen at the end of queue)"
+max_value = 10.0
+value = 2.0
+
+[node name="StopContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid2"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="StopLimitLabel" type="Label" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid2/StopContainer"]
+layout_mode = 2
+text = "Stop after Fails"
+
+[node name="StopLimitInput" type="SpinBox" parent="MarginContainer/MainLayout/PreviewPanel/SettingsGrid2/StopContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Stops the process after the configured number of consecutive failed requests"
+min_value = 1.0
+value = 5.0
+
+[node name="HSeparator" type="HSeparator" parent="MarginContainer/MainLayout/PreviewPanel"]
 layout_mode = 2
 
 [node name="PreviewLabel" type="Label" parent="MarginContainer/MainLayout/PreviewPanel"]
@@ -123,64 +235,6 @@ layout_mode = 2
 
 [node name="ApiPanel" type="VBoxContainer" parent="MarginContainer/MainLayout"]
 custom_minimum_size = Vector2(400, 0)
-layout_mode = 2
-
-[node name="ApiSettingsLabel" type="Label" parent="MarginContainer/MainLayout/ApiPanel"]
-layout_mode = 2
-text = "API Settings"
-
-[node name="SettingsGrid" type="HBoxContainer" parent="MarginContainer/MainLayout/ApiPanel"]
-layout_mode = 2
-theme_override_constants/separation = 20
-
-[node name="TempContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/ApiPanel/SettingsGrid"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="TempLabel" type="Label" parent="MarginContainer/MainLayout/ApiPanel/SettingsGrid/TempContainer"]
-layout_mode = 2
-text = "Temperature"
-
-[node name="TempInput" type="SpinBox" parent="MarginContainer/MainLayout/ApiPanel/SettingsGrid/TempContainer"]
-unique_name_in_owner = true
-layout_mode = 2
-max_value = 2.0
-step = 0.05
-value = 0.7
-
-[node name="MaxTokensContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/ApiPanel/SettingsGrid"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="MaxTokensLabel" type="Label" parent="MarginContainer/MainLayout/ApiPanel/SettingsGrid/MaxTokensContainer"]
-layout_mode = 2
-text = "Max Tokens"
-
-[node name="MaxTokensInput" type="SpinBox" parent="MarginContainer/MainLayout/ApiPanel/SettingsGrid/MaxTokensContainer"]
-unique_name_in_owner = true
-layout_mode = 2
-min_value = 512.0
-max_value = 131072.0
-step = 512.0
-value = 4096.0
-allow_greater = true
-
-[node name="WaitContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/ApiPanel/SettingsGrid"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="WaitLabel" type="Label" parent="MarginContainer/MainLayout/ApiPanel/SettingsGrid/WaitContainer"]
-layout_mode = 2
-text = "Wait (sec)"
-
-[node name="WaitInput" type="SpinBox" parent="MarginContainer/MainLayout/ApiPanel/SettingsGrid/WaitContainer"]
-unique_name_in_owner = true
-layout_mode = 2
-max_value = 600.0
-step = 0.1
-value = 0.1
-
-[node name="HSeparator" type="HSeparator" parent="MarginContainer/MainLayout/ApiPanel"]
 layout_mode = 2
 
 [node name="EndpointSettingsLabel" type="Label" parent="MarginContainer/MainLayout/ApiPanel"]
@@ -214,6 +268,7 @@ layout_mode = 2
 [node name="RunPanel" type="VBoxContainer" parent="MarginContainer/MainLayout"]
 custom_minimum_size = Vector2(360, 0)
 layout_mode = 2
+theme_override_constants/separation = 5
 
 [node name="CloseBtn" type="Button" parent="MarginContainer/MainLayout/RunPanel"]
 unique_name_in_owner = true
@@ -237,6 +292,9 @@ text = "Stop"
 
 [node name="ProgressBar" type="ProgressBar" parent="MarginContainer/MainLayout/RunPanel"]
 unique_name_in_owner = true
+layout_mode = 2
+
+[node name="HSeparator3" type="HSeparator" parent="MarginContainer/MainLayout/RunPanel"]
 layout_mode = 2
 
 [node name="LogsLabel" type="Label" parent="MarginContainer/MainLayout/RunPanel"]

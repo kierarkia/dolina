@@ -17,7 +17,7 @@ func _ready() -> void:
 
 # --- PUBLIC API ---
 
-func send_request(api_url: String, api_key: String, model: String, messages: Array, temperature: float = 0.7, max_tokens: int = 4096) -> void:
+func send_request(api_url: String, api_key: String, model: String, messages: Array, temperature: float = 0.7, max_tokens: int = 4096, timeout: float = 120.0) -> void:
 	if _http.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
 		request_failed.emit("Client is busy", 0)
 		return
@@ -40,6 +40,7 @@ func send_request(api_url: String, api_key: String, model: String, messages: Arr
 	else:
 		tls_options = TLSOptions.client() # Secure for Cloud
 	_http.set_tls_options(tls_options)
+	_http.timeout = timeout
 
 	# --- 3. PAYLOAD CONSTRUCTION ---
 	var headers = [
@@ -105,6 +106,14 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 		return
 		
 	var data = json.data
+	
+	if result == HTTPRequest.RESULT_TIMEOUT:
+		request_failed.emit("Request Timed Out", 408) # 408 is standard HTTP Timeout code
+		return
+		
+	if result != HTTPRequest.RESULT_SUCCESS:
+		request_failed.emit("Connection Error", result)
+		return
 	
 	if response_code >= 400:
 		var err_msg = "API Error (%d)" % response_code

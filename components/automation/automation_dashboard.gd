@@ -32,6 +32,9 @@ const ApiBlockScene = preload("res://components/automation/ApiBlock.tscn")
 @onready var delete_template_btn: Button = %DeleteTemplateBtn
 @onready var save_template_dialog: ConfirmationDialog = %SaveTemplateDialog
 @onready var template_name_input: LineEdit = %TemplateNameInput
+@onready var timeout_input: SpinBox = %TimeoutInput
+@onready var retries_input: SpinBox = %RetriesInput
+@onready var stop_limit_input: SpinBox = %StopLimitInput
 
 # Settings Inputs
 @onready var target_col_input: LineEdit = %TargetColInput
@@ -44,6 +47,15 @@ var _queue: Array = [] # Array of Stems to process
 var _current_stem: String = ""
 var _wrr_state: Array = [] # Weighted Round Robin counters
 var _provider_configs: Array = [] # Cache of configs for the run
+var _failed_stems: Array = []
+var _current_retry_round: int = 0
+var _consecutive_fails: int = 0
+var _waiting_for_response: bool = false
+var _current_config: Dictionary = {} # Stores the config used for the active request
+var _batch_stats: Dictionary = {     # Stores the running tallies
+	"models": {},
+	"urls": {}
+}
 
 func setup(pm: ProjectManager) -> void:
 	_project_manager = pm
@@ -73,6 +85,8 @@ func _ready() -> void:
 	
 	if close_btn:
 		close_btn.pressed.connect(func(): hide())
+	
+	resume_check.button_pressed = true
 	
 	# Setup Debounce Timer
 	add_child(preview_timer)
@@ -284,8 +298,17 @@ func _recalculate_ratios() -> void:
 			child.update_stats(total_weight, est_size)
 
 func _log(msg: String) -> void:
+	var v_bar = logs.get_v_scroll_bar()
+	var old_value = v_bar.value
+	var was_at_bottom = (old_value + v_bar.page >= v_bar.max_value - 2.0)
+
 	logs.text += msg + "\n"
-	logs.scroll_vertical = logs.get_line_count()
+
+	if was_at_bottom:
+		await get_tree().process_frame
+		logs.scroll_vertical = int(v_bar.max_value)
+	else:
+		v_bar.value = old_value
 
 # --- BATCH EXECUTION LOGIC ---
 
@@ -337,6 +360,11 @@ func _start_batch() -> void:
 	if target_col == "":
 		_log("Error: Please specify a target column name.")
 		return
+		
+	_batch_stats = {
+		"models": {},
+		"urls": {}
+	}
 
 	# Register the column ONCE before starting (Updates dolina_dataset_config.json)
 	_project_manager.register_new_column(target_col)
@@ -360,6 +388,10 @@ func _start_batch() -> void:
 	_wrr_state.clear()
 	for i in range(_provider_configs.size()):
 		_wrr_state.append(0)
+		
+	_failed_stems.clear()
+	_current_retry_round = 0
+	_consecutive_fails = 0
 	
 	# 4. Build the Processing Queue
 	_queue.clear()
@@ -392,20 +424,22 @@ func _start_batch() -> void:
 	
 	_log("Batch started. Items in queue: %d" % _queue.size())
 	_log("Load balancing across %d endpoint(s)." % _provider_configs.size())
-	
-	# 7. Kick off the loop
+
 	_process_next()
 
 func _stop_batch() -> void:
 	_is_running = false
+	_waiting_for_response = false
 	start_btn.disabled = false
 	stop_btn.disabled = true
 	_log("Batch stopped by user.")
 
 func _process_next() -> void:
 	if not _is_running: return
+	if _waiting_for_response: 
+		return
 	if _queue.is_empty():
-		_finish_batch()
+		_check_retry_queue()
 		return
 		
 	_current_stem = _queue.pop_front()
@@ -445,21 +479,27 @@ func _process_next() -> void:
 	
 	var active_config = _provider_configs[selected_idx]
 	# -----------------------------------------------------
-
+	_current_config = active_config
 	_log("[%s] Processing: %s..." % [active_config.model, _current_stem])
+	
+	_waiting_for_response = true
 	
 	# 3. Send Request
 	api_client.send_request(
-		active_config.url,
-		active_config.key,
-		active_config.model,
-		messages,
-		temp_input.value,
-		int(max_tokens_input.value)
-	)
+			active_config.url,
+			active_config.key,
+			active_config.model,
+			messages,
+			temp_input.value,
+			int(max_tokens_input.value),
+			timeout_input.value # NEW ARGUMENT
+		)
 
 func _on_api_success(response: Dictionary) -> void:
+	_waiting_for_response = false
+	_update_stats(true)
 	if not _is_running: return
+	_consecutive_fails = 0
 	
 	var content = ""
 	if response.has("choices") and response["choices"].size() > 0:
@@ -502,16 +542,65 @@ func _on_api_success(response: Dictionary) -> void:
 	_process_next()
 
 func _on_api_fail(msg: String, code: int) -> void:
+	_waiting_for_response = false
+	_update_stats(false)
+	if not _is_running: return
+	
 	_log("FAILED on %s: %s (Code: %d)" % [_current_stem, msg, code])
-	_is_running = false
-	start_btn.disabled = false
-	stop_btn.disabled = true
+	
+	# 1. Update Circuit Breaker
+	_consecutive_fails += 1
+	var limit = int(stop_limit_input.value)
+	
+	if _consecutive_fails >= limit:
+		_log("CRITICAL: %d consecutive failures reached. Stopping batch." % limit)
+		_finish_batch() # Actually stop this time
+		return
+
+	# 2. Add to Retry Queue
+	_failed_stems.append(_current_stem)
+	
+	# 3. Continue to next item (don't stop!)
+	# Add a small delay to let the API breathe
+	await get_tree().create_timer(1.0).timeout
+	_process_next()
+	
+func _check_retry_queue() -> void:
+	# Do we have failed items? AND Do we have rounds left?
+	var max_retries = int(retries_input.value)
+	
+	if not _failed_stems.is_empty() and _current_retry_round < max_retries:
+		_current_retry_round += 1
+		
+		_log("------------------------------------------------")
+		_log("Batch Pass Complete. Starting Retry Round %d / %d" % [_current_retry_round, max_retries])
+		_log("Re-queueing %d failed items..." % _failed_stems.size())
+		_log("------------------------------------------------")
+		
+		# Move failed items back to main queue
+		_queue = _failed_stems.duplicate()
+		_failed_stems.clear()
+		
+		# Update Progress Bar for the new work
+		progress_bar.max_value = _queue.size()
+		progress_bar.value = 0
+		
+		# Restart Loop
+		_process_next()
+		
+	else:
+		# No retries needed, or we ran out of retries
+		if not _failed_stems.is_empty():
+			_log("Warning: %d items failed permanently after all retries." % _failed_stems.size())
+			
+		_finish_batch()
 
 func _finish_batch() -> void:
 	_is_running = false
 	start_btn.disabled = false
 	stop_btn.disabled = true
 	progress_bar.value = progress_bar.max_value
+	_print_batch_summary()
 	_log("Batch Completed! Reloading project...")
 	batch_ended.emit()
 	
@@ -520,6 +609,70 @@ func _finish_batch() -> void:
 	
 	# Ask Main to do it gracefully
 	request_reload.emit()
+
+func _update_stats(is_success: bool) -> void:
+	if _current_config.is_empty(): return
+	
+	var model = _current_config.get("model", "Unknown")
+	var url = _current_config.get("url", "Unknown")
+	var type_key = "ok" if is_success else "fail"
+	
+	# 1. Update Model Stats
+	if not _batch_stats["models"].has(model):
+		_batch_stats["models"][model] = { "ok": 0, "fail": 0 }
+	_batch_stats["models"][model][type_key] += 1
+	
+	# 2. Update URL Stats
+	if not _batch_stats["urls"].has(url):
+		_batch_stats["urls"][url] = { "ok": 0, "fail": 0 }
+	_batch_stats["urls"][url][type_key] += 1
+
+func _print_batch_summary() -> void:
+	_log("")
+	_log("==============================")
+	_log("       BATCH SUMMARY")
+	_log("==============================")
+	
+	# 1. Print Model Stats
+	_log("[ By Model ]")
+	var models = _batch_stats["models"].keys()
+	models.sort()
+	
+	if models.is_empty():
+		_log("(No data)")
+	else:
+		for m in models:
+			var s = _batch_stats["models"][m]
+			var total = s["ok"] + s["fail"]
+			var rate = 0.0
+			if total > 0: rate = (float(s["ok"]) / total) * 100.0
+			
+			# Format: "gpt-4: 10 OK, 2 Fail (83%)"
+			_log("- %s: %d OK, %d Fail (%.0f%%)" % [m, s["ok"], s["fail"], rate])
+			
+	_log("")
+	
+	# 2. Print URL Stats
+	_log("[ By Endpoint URL ]")
+	var urls = _batch_stats["urls"].keys()
+	urls.sort()
+	
+	if urls.is_empty():
+		_log("(No data)")
+	else:
+		for u in urls:
+			var s = _batch_stats["urls"][u]
+			var total = s["ok"] + s["fail"]
+			var rate = 0.0
+			if total > 0: rate = (float(s["ok"]) / total) * 100.0
+			
+			# Clean up URL for display (remove https://)
+			var display_url = u.replace("https://", "").replace("http://", "")
+			if display_url.length() > 40: display_url = display_url.substr(0, 37) + "..."
+			
+			_log("- %s: %d OK, %d Fail (%.0f%%)" % [display_url, s["ok"], s["fail"], rate])
+			
+	_log("==============================")
 
 func _refresh_template_list() -> void:
 	var current_selection = ""
@@ -562,10 +715,14 @@ func _reset_to_default_state() -> void:
 	
 	# 4. Reset Settings
 	target_col_input.text = ""
+	resume_check.button_pressed = true
 	resume_check.button_pressed = false
 	temp_input.value = 0.7
 	max_tokens_input.value = 4096
 	wait_input.value = 0.1
+	timeout_input.value = 120
+	retries_input.value = 2
+	stop_limit_input.value = 5
 	
 	preview_timer.start()
 		
@@ -576,6 +733,9 @@ func _perform_save_template(template_name: String) -> void: # Renamed arg
 		"temp": temp_input.value,
 		"max_tokens": max_tokens_input.value,
 		"wait_time": wait_input.value,
+		"timeout": timeout_input.value,
+		"retries": retries_input.value,
+		"stop_limit": stop_limit_input.value,
 		"inputs": [],
 		"apis": []
 	}
@@ -616,6 +776,9 @@ func _on_template_selected(index: int) -> void:
 	if data.has("temp"): temp_input.value = data["temp"]
 	if data.has("max_tokens"): max_tokens_input.value = data["max_tokens"]
 	if data.has("wait_time"): wait_input.value = data["wait_time"]
+	if data.has("timeout"): timeout_input.value = data["timeout"]
+	if data.has("retries"): retries_input.value = data["retries"]
+	if data.has("stop_limit"): stop_limit_input.value = data["stop_limit"]
 	
 	# 2. Restore Inputs
 	for child in block_list.get_children():

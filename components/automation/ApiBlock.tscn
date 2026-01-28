@@ -34,7 +34,7 @@ text = "Key:"
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-placeholder_text = "Your API key (might not be required for local)..."
+placeholder_text = "API Key (optional for local)..."
 secret = true
 
 [node name="Label3" type="Label" parent="HBoxContainer/VBoxContainer/Grid"]
