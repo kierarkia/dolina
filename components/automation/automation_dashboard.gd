@@ -27,6 +27,11 @@ const ApiBlockScene = preload("res://components/automation/ApiBlock.tscn")
 @onready var wait_input: SpinBox = %WaitInput
 @onready var api_block_list: VBoxContainer = %ApiBlockList
 @onready var add_api_btn: Button = %AddApiBtn
+@onready var template_select: OptionButton = %TemplateSelect
+@onready var save_template_btn: Button = %SaveTemplateBtn
+@onready var delete_template_btn: Button = %DeleteTemplateBtn
+@onready var save_template_dialog: ConfirmationDialog = %SaveTemplateDialog
+@onready var template_name_input: LineEdit = %TemplateNameInput
 
 # Settings Inputs
 @onready var target_col_input: LineEdit = %TargetColInput
@@ -42,12 +47,17 @@ var _provider_configs: Array = [] # Cache of configs for the run
 
 func setup(pm: ProjectManager) -> void:
 	_project_manager = pm
-	# When opening, ensure existing blocks have updated column lists
 	_refresh_columns()
+	_refresh_template_list()
 	
-	# Only add the default block IF the list is empty AND we are set up
+	# Force selection to "EMPTY TEMPLATE" on startup
+	template_select.selected = 0
+	
+	# Only add default blocks if we are truly empty (failsafe)
 	if block_list.get_child_count() == 0:
 		_add_block()
+	if api_block_list.get_child_count() == 0:
+		_add_api_block()
 
 func _ready() -> void:
 	add_block_btn.pressed.connect(_add_block)
@@ -75,6 +85,25 @@ func _ready() -> void:
 	add_api_btn.pressed.connect(_add_api_block)
 	if api_block_list.get_child_count() == 0:
 		_add_api_block()
+		
+	# TEMPLATE CONNECTIONS
+	template_select.item_selected.connect(_on_template_selected)
+	save_template_btn.pressed.connect(func(): 
+		template_name_input.text = ""
+		# Pre-fill if editing an existing template
+		if template_select.selected > 0:
+			template_name_input.text = template_select.get_item_text(template_select.selected)
+		save_template_dialog.popup_centered()
+		template_name_input.grab_focus()
+	)
+	
+	delete_template_btn.pressed.connect(_on_delete_template)
+	
+	save_template_dialog.confirmed.connect(func():
+		var template_name = template_name_input.text.strip_edges()
+		if template_name != "":
+			_perform_save_template(template_name)
+	)
 	
 func _update_live_preview() -> void:
 	if _project_manager.current_dataset.is_empty():
@@ -491,3 +520,158 @@ func _finish_batch() -> void:
 	
 	# Ask Main to do it gracefully
 	request_reload.emit()
+
+func _refresh_template_list() -> void:
+	var current_selection = ""
+	if template_select.selected >= 0:
+		current_selection = template_select.get_item_text(template_select.selected)
+	
+	template_select.clear()
+	template_select.add_item("EMPTY TEMPLATE") # Index 0
+	# We do NOT disable it anymore. We want it clickable.
+	
+	var list = _project_manager.list_templates()
+	for t in list:
+		template_select.add_item(t)
+		
+	# Restore selection if possible, otherwise default to 0
+	var found = false
+	for i in range(template_select.item_count):
+		if template_select.get_item_text(i) == current_selection:
+			template_select.selected = i
+			found = true
+			break
+	
+	if not found:
+		template_select.selected = 0
+		
+func _reset_to_default_state() -> void:
+	# 1. Clear Inputs
+	for child in block_list.get_children():
+		child.queue_free()
+	
+	# 2. Clear APIs
+	for child in api_block_list.get_children():
+		child.queue_free()
+		
+	await get_tree().process_frame
+	
+	# 3. Add Defaults
+	_add_block()
+	_add_api_block()
+	
+	# 4. Reset Settings
+	target_col_input.text = ""
+	resume_check.button_pressed = false
+	temp_input.value = 0.7
+	max_tokens_input.value = 4096
+	wait_input.value = 0.1
+	
+	preview_timer.start()
+		
+func _perform_save_template(template_name: String) -> void: # Renamed arg
+	var data = {
+		"target_col": target_col_input.text,
+		"resume": resume_check.button_pressed,
+		"temp": temp_input.value,
+		"max_tokens": max_tokens_input.value,
+		"wait_time": wait_input.value,
+		"inputs": [],
+		"apis": []
+	}
+	
+	for child in block_list.get_children():
+		if child is InputBlock:
+			data["inputs"].append(child.get_config())
+			
+	for child in api_block_list.get_children():
+		if child is ApiBlock:
+			var cfg = child.get_config()
+			cfg["key"] = "" # Security
+			data["apis"].append(cfg)
+			
+	_project_manager.save_template(template_name, data)
+	_refresh_template_list()
+	
+	# Select the new item
+	for i in range(template_select.item_count):
+		if template_select.get_item_text(i) == template_name:
+			template_select.selected = i
+			break
+
+func _on_template_selected(index: int) -> void:
+	# CASE 1: Empty/Reset
+	if index == 0:
+		_reset_to_default_state()
+		return
+	
+	# CASE 2: Load Actual Template
+	var template_name = template_select.get_item_text(index)
+	var data = _project_manager.load_template(template_name)
+	if data.is_empty(): return
+	
+	# 1. Restore Global Settings
+	if data.has("target_col"): target_col_input.text = data["target_col"]
+	if data.has("resume"): resume_check.button_pressed = data["resume"]
+	if data.has("temp"): temp_input.value = data["temp"]
+	if data.has("max_tokens"): max_tokens_input.value = data["max_tokens"]
+	if data.has("wait_time"): wait_input.value = data["wait_time"]
+	
+	# 2. Restore Inputs
+	for child in block_list.get_children():
+		child.queue_free()
+	
+	await get_tree().process_frame
+	
+	if data.has("inputs"):
+		for cfg in data["inputs"]:
+			var block = InputBlockScene.instantiate()
+			block_list.add_child(block)
+			block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			
+			# Setup
+			block.setup_columns(_project_manager.current_columns)
+			block.deleted_requested.connect(func(): 
+				block.queue_free()
+				await get_tree().process_frame
+				preview_timer.start()
+			)
+			block.content_changed.connect(func(): preview_timer.start())
+			
+			# CLEANER: Use the new helper
+			block.set_config(cfg)
+
+	# 3. Restore APIs
+	for child in api_block_list.get_children():
+		child.queue_free()
+		
+	await get_tree().process_frame
+	
+	if data.has("apis"):
+		for cfg in data["apis"]:
+			var block = ApiBlockScene.instantiate()
+			api_block_list.add_child(block)
+			block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			
+			# Setup
+			block.deleted_requested.connect(func():
+				block.queue_free()
+				await get_tree().process_frame
+				_recalculate_ratios()
+			)
+			block.config_changed.connect(_recalculate_ratios)
+			
+			# CLEANER: Use the new helper
+			block.set_config(cfg)
+			
+	# Trigger updates
+	preview_timer.start()
+	_recalculate_ratios()
+
+func _on_delete_template() -> void:
+	if template_select.selected <= 0: return
+	var template_name = template_select.get_item_text(template_select.selected) # Renamed var
+	
+	_project_manager.delete_template(template_name)
+	_refresh_template_list()
+	template_select.selected = 0

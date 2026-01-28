@@ -119,3 +119,26 @@ func _drop_data(_at_position: Vector2, data: Variant) -> void:
 	# Also emit from the dragged node, just in case
 	if dragging_node.has_signal("content_changed"):
 		dragging_node.content_changed.emit()
+
+func set_config(data: Dictionary) -> void:
+	# 1. Set Type
+	# We iterate to find the matching ID (safest method)
+	var type_id = int(data.get("type", 0))
+	for i in range(type_select.item_count):
+		if type_select.get_item_id(i) == type_id:
+			type_select.selected = i
+			_on_type_changed(i) # Important: Update UI visibility
+			break
+			
+	# 2. Set Value (Static Text)
+	if data.has("value"):
+		# Using 'text' property works for both LineEdit and TextEdit
+		value_input.text = data["value"]
+		
+	# 3. Set Column
+	if data.has("column"):
+		var col_str = str(data["column"]).to_upper()
+		for i in range(column_select.item_count):
+			if column_select.get_item_text(i) == col_str:
+				column_select.selected = i
+				break

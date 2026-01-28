@@ -15,6 +15,7 @@ var current_columns: Array[String] = []
 var is_fresh_install: bool = false
 var autosave_enabled: bool = true
 var column_conflicts: Dictionary = {}
+var templates_root_path: String = ""
 
 # --- PATHS ---
 var _column_path_map: Dictionary = {}
@@ -102,6 +103,7 @@ func _setup_paths() -> void:
 	if _base_data_path != "":
 		datasets_root_path = _base_data_path + "/datasets"
 		deleted_root_path = _base_data_path + "/deleted_files"
+		templates_root_path = _base_data_path + "/automation_templates"
 		print("Data Library Loaded at: ", _base_data_path)
 	else:
 		print("CRITICAL: No valid data path found.")
@@ -129,6 +131,7 @@ func update_library_path(new_path: String, is_portable: bool = false) -> void:
 	_base_data_path = new_path
 	datasets_root_path = _base_data_path + "/datasets"
 	deleted_root_path = _base_data_path + "/deleted_files"
+	templates_root_path = _base_data_path + "/automation_templates"
 	
 	# If we are creating a new path, ensure folders exist
 	_initialize_library_structure()
@@ -156,6 +159,9 @@ func _initialize_library_structure() -> void:
 		var err = DirAccess.make_dir_recursive_absolute(deleted_root_path)
 		if err != OK:
 			error_occurred.emit("Failed to create folder: " + deleted_root_path)
+			
+	if not DirAccess.dir_exists_absolute(templates_root_path):
+		DirAccess.make_dir_recursive_absolute(templates_root_path)
 
 # --- CORE ACTIONS ---
 
@@ -493,3 +499,47 @@ func register_new_column(col_name: String) -> void:
 			f_write.store_string(JSON.stringify(data, "\t"))
 			f_write.close()
 			print("Config updated: Added ", col_name)
+
+# --- TEMPLATE API ---
+
+func list_templates() -> Array[String]:
+	if not DirAccess.dir_exists_absolute(templates_root_path): return []
+	
+	var dir = DirAccess.open(templates_root_path)
+	if not dir: return []
+	
+	var list: Array[String] = []
+	dir.list_dir_begin()
+	var file = dir.get_next()
+	while file != "":
+		if not dir.current_is_dir() and file.ends_with(".json"):
+			list.append(file.get_basename())
+		file = dir.get_next()
+	list.sort()
+	return list
+
+func save_template(template_name: String, data: Dictionary) -> void:
+	# Sanitize name
+	var safe_name = template_name.validate_filename()
+	var path = templates_root_path + "/" + safe_name + ".json"
+	
+	var f = FileAccess.open(path, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(data, "\t"))
+		f.close()
+		toast_requested.emit("Template Saved!")
+
+func load_template(template_name: String) -> Dictionary:
+	var path = templates_root_path + "/" + template_name + ".json"
+	if FileAccess.file_exists(path):
+		var f = FileAccess.open(path, FileAccess.READ)
+		if f:
+			var json = JSON.new()
+			if json.parse(f.get_as_text()) == OK:
+				return json.data
+	return {}
+
+func delete_template(template_name: String) -> void:
+	var path = templates_root_path + "/" + template_name + ".json"
+	DirAccess.remove_absolute(path)
+	toast_requested.emit("Template Deleted")

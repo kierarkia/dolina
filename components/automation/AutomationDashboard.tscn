@@ -42,6 +42,23 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="TemplateBar" type="HBoxContainer" parent="MarginContainer/MainLayout/ConfigPanel"]
+layout_mode = 2
+
+[node name="TemplateSelect" type="OptionButton" parent="MarginContainer/MainLayout/ConfigPanel/TemplateBar"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="SaveTemplateBtn" type="Button" parent="MarginContainer/MainLayout/ConfigPanel/TemplateBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save Template"
+
+[node name="DeleteTemplateBtn" type="Button" parent="MarginContainer/MainLayout/ConfigPanel/TemplateBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Delete Template"
+
 [node name="InputLabel" type="Label" parent="MarginContainer/MainLayout/ConfigPanel"]
 layout_mode = 2
 text = "Input Settings"
@@ -236,3 +253,13 @@ wrap_mode = 1
 
 [node name="ApiClient" type="Node" parent="."]
 script = ExtResource("2_6gn45")
+
+[node name="SaveTemplateDialog" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+title = "Save Template"
+
+[node name="TemplateNameInput" type="LineEdit" parent="SaveTemplateDialog"]
+unique_name_in_owner = true
+offset_right = 68.5625
+offset_bottom = 31.0
+placeholder_text = "Template Name..."
