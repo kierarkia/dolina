@@ -315,14 +315,28 @@ func create_text_file(stem: String, col_name: String) -> void:
 		return
 
 	var folder_path = _column_path_map[col_name]
+	
+	# --- SELF-HEALING ---
+	if not DirAccess.dir_exists_absolute(folder_path):
+		DirAccess.make_dir_recursive_absolute(folder_path)
+	# ------------------------
+	
 	var file_path = folder_path + "/" + stem + ".txt"
 	
 	var f = FileAccess.open(file_path, FileAccess.WRITE)
 	if f:
 		f.store_string("")
 		f.close()
-		# Partial reload is hard, simpler to full reload for now
-		load_project(current_project_name)
+		
+		# Now we can reuse our nice new signals instead of reloading!
+		# 1. Update Memory
+		if not current_dataset[stem].has(col_name):
+			current_dataset[stem][col_name] = []
+		current_dataset[stem][col_name].append(file_path)
+		
+		# 2. Notify UI
+		file_added.emit(stem, col_name, file_path)
+		toast_requested.emit("Created Text File")
 
 func save_text_file(path: String, content: String) -> void:
 	var f = FileAccess.open(path, FileAccess.WRITE)
@@ -427,6 +441,7 @@ func populate_empty_files(col_name: String, content: String = "") -> void:
 
 # Handle Importing Files (Drag & Drop or Dialog)
 # This centralizes the copy logic so Main doesn't need to know about paths.
+
 func import_file(stem: String, col_name: String, source_path: String) -> void:
 	if not _column_path_map.has(col_name):
 		error_occurred.emit("Column path not found.")
@@ -437,14 +452,22 @@ func import_file(stem: String, col_name: String, source_path: String) -> void:
 	var target_path = folder_path + "/" + stem + "." + ext
 	
 	# 1. THREADED COPY
-	# We move the heavy lifting to the background
 	WorkerThreadPool.add_task(func():
+		# --- SELF-HEALING ---
+		var target_dir = target_path.get_base_dir()
+		if not DirAccess.dir_exists_absolute(target_dir):
+			# If the config pointed to a folder that doesn't exist, create it now.
+			var mk_err = DirAccess.make_dir_recursive_absolute(target_dir)
+			if mk_err != OK:
+				call_deferred("emit_signal", "error_occurred", "Failed to create missing directory: " + error_string(mk_err))
+				return
+		# ------------------------
+
 		# This happens on a background thread
 		var err = DirAccess.copy_absolute(source_path, target_path)
 		
 		if err == OK:
 			# 2. SUCCESS: Schedule the memory update on the Main Thread
-			# We use call_deferred to safely jump back to the main thread
 			call_deferred("_finalize_import", stem, col_name, target_path)
 		else:
 			call_deferred("emit_signal", "error_occurred", "Import Failed: " + error_string(err))
@@ -595,3 +618,66 @@ func delete_template(template_name: String) -> void:
 	var path = templates_root_path + "/" + template_name + ".json"
 	DirAccess.remove_absolute(path)
 	toast_requested.emit("Template Deleted")
+
+func add_virtual_rows(count: int) -> void:
+	if count <= 0: return
+
+	# 1. Determine the "Seed" stem to increment from
+	var keys = current_dataset.keys()
+	var last_stem = ""
+	
+	if not keys.is_empty():
+		keys.sort()
+		last_stem = keys[-1] # Get the very last key alphabetically
+	
+	# 2. Analyze the seed to determine naming strategy
+	var prefix = ""
+	var current_number = 0
+	var padding = 3 # Default padding (e.g., 001)
+	
+	if last_stem == "":
+		# EDGE CASE: Empty Dataset
+		prefix = ""
+		current_number = 0 
+		padding = 3
+	else:
+		# Use Regex to split "item_x345" into "item_x" and "345"
+		var regex = RegEx.new()
+		regex.compile("^(.*?)(\\d+)$")
+		var result = regex.search(last_stem)
+		
+		if result:
+			# Case: Ends with number (item_x345)
+			prefix = result.get_string(1)
+			var num_str = result.get_string(2)
+			current_number = int(num_str)
+			padding = num_str.length()
+		else:
+			# Case: No number (item_xABC) -> (item_xABC001)
+			prefix = last_stem
+			# Add a separator if it doesn't end with one already (optional preference)
+			# if not prefix.ends_with("_") and not prefix.ends_with("-"): prefix += "_"
+			current_number = 0
+			padding = 3
+
+	# 3. Generate Virtual Rows
+	for i in range(count):
+		current_number += 1
+		# Format number with padding (e.g. 1 -> "001")
+		var num_part = "%0*d" % [padding, current_number]
+		var new_stem = prefix + num_part
+		
+		# Ensure uniqueness (in case we wrap around or collide)
+		while current_dataset.has(new_stem):
+			current_number += 1
+			num_part = "%0*d" % [padding, current_number]
+			new_stem = prefix + num_part
+		
+		# Create the Empty Row in Memory
+		current_dataset[new_stem] = {}
+		# Initialize empty arrays for columns so the Row component renders empty slots
+		for col in current_columns:
+			current_dataset[new_stem][col] = []
+			
+	# 4. Save nothing to disk yet! Just notify UI.
+	project_loaded.emit()

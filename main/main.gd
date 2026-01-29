@@ -587,6 +587,18 @@ func _trigger_preload() -> void:
 
 func _render_grid(col_width: float = -1.0) -> void:
 	if col_width < 0: col_width = _calculate_column_width()
+	
+	# 1. Clean up any "Add Rows" buttons from previous renders
+	# This ensures our existing_children array only contains recyclable Rows/Separators
+	var raw_children = row_container.get_children()
+	for child in raw_children:
+		if child is Button:
+			row_container.remove_child(child)
+			child.queue_free()
+
+	# 2. NOW fetch the clean list for recycling
+	var existing_children = row_container.get_children()
+	
 	_row_lookup.clear()
 	
 	# --- DATA PREP ---
@@ -602,7 +614,6 @@ func _render_grid(col_width: float = -1.0) -> void:
 	var end_index = min(start_index + page_size, source_list.size())
 	
 	# --- POOLING LOGIC ---
-	var existing_children = row_container.get_children()
 	var child_idx = 0
 	
 	for i in range(start_index, end_index):
@@ -612,19 +623,12 @@ func _render_grid(col_width: float = -1.0) -> void:
 		var row_instance: Row
 		var sep_instance: HSeparator
 		
-		# 1. Check if we have a recyclable pair (Row + Separator)
-		# We look ahead 2 indices (current + next) because we store [Row, Sep, Row, Sep...]
 		if child_idx + 1 < existing_children.size():
-			# RECYCLE: Grab existing nodes
 			row_instance = existing_children[child_idx] as Row
 			sep_instance = existing_children[child_idx + 1] as HSeparator
-			
 			row_instance.show()
 			sep_instance.show()
-			
-			# Note: We don't need to re-connect signals because they stick around!
 		else:
-			# CREATE: Instantiate new nodes
 			row_instance = RowScene.instantiate()
 			sep_instance = HSeparator.new()
 			sep_instance.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -632,7 +636,6 @@ func _render_grid(col_width: float = -1.0) -> void:
 			row_container.add_child(row_instance)
 			row_container.add_child(sep_instance)
 			
-			# CONNECT SIGNALS (Only done once per instance)
 			row_instance.request_full_image.connect(_on_row_request_image)
 			row_instance.request_create_txt.connect(_handle_create_txt)
 			row_instance.request_delete_file.connect(_handle_delete_file)
@@ -644,10 +647,9 @@ func _render_grid(col_width: float = -1.0) -> void:
 			row_instance.request_direct_upload.connect(_handle_direct_upload)
 			if not row_instance.request_side_by_side.is_connected(_on_row_request_sbs):
 				row_instance.request_side_by_side.connect(_on_row_request_sbs)
-				
+		
 		_row_lookup[stem] = row_instance
 		
-		# 2. Setup the Row (This is the "Renovation" part)
 		row_instance.setup(
 			stem, 
 			row_data, 
@@ -657,15 +659,18 @@ func _render_grid(col_width: float = -1.0) -> void:
 			project_manager.autosave_enabled
 		)
 		
-		# Advance our index by 2 (Row + Separator)
 		child_idx += 2
 
-	# 3. Hide Unused Nodes (Don't delete them, keep them for next time)
+	# Hide Unused Nodes
 	while child_idx < existing_children.size():
 		existing_children[child_idx].hide()
 		child_idx += 1
 		
-	# --- PRELOAD NEXT PAGE ---
+	# 3. ADD BUTTON (Cleanly appended at the end)
+	if current_page == total_pages and not %SearchManager.is_active():
+		var btn = _create_add_rows_button()
+		row_container.add_child(btn)
+
 	_trigger_preload()
 
 func _on_row_request_image(stem: String, clicked_path: String) -> void:
@@ -816,3 +821,39 @@ func _jump_to_conflict(col_name: String) -> void:
 	else:
 		_show_toast("Conflict no longer exists.")
 		_render_grid() # Refresh to clear the warning icon
+
+func _create_add_rows_button() -> Button:
+	var btn = Button.new()
+	btn.text = "+ Add Rows"
+	btn.custom_minimum_size.y = 50
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	
+	# Optional styling to make it look distinct
+	btn.flat = false 
+	
+	btn.pressed.connect(func():
+		# Simple input dialog logic
+		_show_add_rows_dialog()
+	)
+	return btn
+
+func _show_add_rows_dialog() -> void:
+	
+	var prompt = "How many rows to add?"
+	
+	safety_dialog.open_fill(prompt, func():
+		var txt = safety_dialog.get_input_text()
+		if txt.is_valid_int():
+			var count = int(txt)
+			project_manager.add_virtual_rows(count)
+			
+			# Jump to last page to see new rows
+			# We need to wait for project_loaded signal to update total_pages first
+			await get_tree().process_frame 
+			_on_page_jump_requested(total_pages)
+	)
+	
+	# Slight hack: The open_fill sets placeholder to "Text to write...", 
+	# let's override it for this context
+	safety_dialog.input_line.placeholder_text = "e.g. 5"
+	safety_dialog.input_line.text = "1" # Default value
