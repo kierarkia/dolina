@@ -19,6 +19,7 @@ signal review_requested(stem: String, col_name: String, context_list: Array)
 @onready var preface_limit: SpinBox = %PrefaceLimit
 @onready var postface_edit: TextEdit = %PostfaceEdit
 @onready var postface_limit: SpinBox = %PostfaceLimit
+@onready var clear_btn: Button = %ClearBtn
 
 # --- DEFAULTS ---
 const DEFAULT_REFUSALS = "i cannot\ni can't\ni am unable\napologize\nsorry\nas an ai\nlanguage model\npolicy\ncontent warning\ncannot fulfill\ncannot rewrite\ncannot comply\nagainst my\nviolation of"
@@ -34,6 +35,7 @@ func setup(pm: ProjectManager) -> void:
 func _ready() -> void:
 	close_btn.pressed.connect(func(): close_requested.emit())
 	scan_btn.pressed.connect(_run_audit)
+	clear_btn.pressed.connect(_clear_results)
 	
 	# Set defaults
 	refusal_edit.text = DEFAULT_REFUSALS
@@ -176,3 +178,7 @@ func _get_phrases(edit: TextEdit) -> Array[String]:
 		var s = line.strip_edges().to_lower()
 		if s != "": clean.append(s)
 	return clean
+
+func _clear_results() -> void:
+	for child in result_list.get_children():
+		child.queue_free()

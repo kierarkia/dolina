@@ -199,9 +199,16 @@ layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
+[node name="ClearBtn" type="Button" parent="MarginContainer/MainLayout/ResultsPanel/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Clear Results"
+
 [node name="CloseBtn" type="Button" parent="MarginContainer/MainLayout/ResultsPanel/Header"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 20
 text = "Minimize"
 
 [node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/MainLayout/ResultsPanel"]

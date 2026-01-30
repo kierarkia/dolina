@@ -4,7 +4,7 @@ extends PanelContainer
 signal deleted_requested
 signal config_changed
 
-@onready var delete_btn: Button = %DeleteBtn # Make unique
+@onready var delete_btn: Button = %DeleteBtn
 @onready var url_input: LineEdit = %UrlInput
 @onready var key_input: LineEdit = %KeyInput
 @onready var model_input: LineEdit = %ModelInput
