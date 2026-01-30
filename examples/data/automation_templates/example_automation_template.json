@@ -1,0 +1,40 @@
+{
+	"apis": [
+		{
+			"key": "",
+			"model": "mradermacher/gemma-3-27b-derestricted",
+			"url": "http://localhost:1234/v1/chat/completions",
+			"weight": 1
+		}
+	],
+	"inputs": [
+		{
+			"type": 0,
+			"value": "You are assisting in creating a training dataset for an image generation lora. Please analyze and caption this image. Create a training prompt for this image - a prompt that would result in this image getting generated. Please be thorough and describe any poses and positions, attire and other physical features. Include a mood description as well. When writing make sure to point out the locations of things in either absolute terms or relative to other items. Return JUST a prompt in natural language text form please."
+		},
+		{
+			"type": 0,
+			"value": "Use these relevant booru tags for crafting the natural language prompt:"
+		},
+		{
+			"column": "tags",
+			"type": 1
+		},
+		{
+			"type": 0,
+			"value": "Reply just with a prompt, no titles, explanations or other conversational text. Describe it like a person would. Be direct, don't use overly formal, mechanical or medical speech. Don't use markdown or lists."
+		},
+		{
+			"column": "image_output",
+			"type": 2
+		}
+	],
+	"max_tokens": 4096.0,
+	"resume": true,
+	"retries": 2.0,
+	"stop_limit": 5.0,
+	"target_col": "image_description",
+	"temp": 0.7,
+	"timeout": 120.0,
+	"wait_time": 0.1
+}
