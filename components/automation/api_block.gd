@@ -48,5 +48,6 @@ func update_stats(total_weight: int, total_items_estimate: int) -> void:
 
 func set_config(data: Dictionary) -> void:
 	if data.has("url"): url_input.text = data["url"]
+	if data.has("key"): key_input.text = data["key"]
 	if data.has("model"): model_input.text = data["model"]
 	if data.has("weight"): weight_input.value = data["weight"]

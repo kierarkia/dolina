@@ -32,6 +32,7 @@ const ApiBlockScene = preload("res://components/automation/ApiBlock.tscn")
 @onready var delete_template_btn: Button = %DeleteTemplateBtn
 @onready var save_template_dialog: ConfirmationDialog = %SaveTemplateDialog
 @onready var template_name_input: LineEdit = %TemplateNameInput
+@onready var save_keys_check: CheckBox = %SaveKeysCheck
 @onready var timeout_input: SpinBox = %TimeoutInput
 @onready var retries_input: SpinBox = %RetriesInput
 @onready var stop_limit_input: SpinBox = %StopLimitInput
@@ -107,6 +108,7 @@ func _ready() -> void:
 		# Pre-fill if editing an existing template
 		if template_select.selected > 0:
 			template_name_input.text = template_select.get_item_text(template_select.selected)
+		save_keys_check.button_pressed = false
 		save_template_dialog.popup_centered()
 		template_name_input.grab_focus()
 	)
@@ -116,7 +118,7 @@ func _ready() -> void:
 	save_template_dialog.confirmed.connect(func():
 		var template_name = template_name_input.text.strip_edges()
 		if template_name != "":
-			_perform_save_template(template_name)
+			_perform_save_template(template_name, save_keys_check.button_pressed)
 	)
 	
 func _update_live_preview() -> void:
@@ -726,7 +728,8 @@ func _reset_to_default_state() -> void:
 	
 	preview_timer.start()
 		
-func _perform_save_template(template_name: String) -> void: # Renamed arg
+# Update signature to accept is_saving_keys
+func _perform_save_template(template_name: String, is_saving_keys: bool) -> void: 
 	var data = {
 		"target_col": target_col_input.text,
 		"resume": resume_check.button_pressed,
@@ -747,7 +750,13 @@ func _perform_save_template(template_name: String) -> void: # Renamed arg
 	for child in api_block_list.get_children():
 		if child is ApiBlock:
 			var cfg = child.get_config()
-			cfg["key"] = "" # Security
+			
+			# --- LOGIC CHANGE ---
+			# Only strip the key if the user DID NOT check the box
+			if not is_saving_keys:
+				cfg["key"] = "" 
+			# --------------------
+			
 			data["apis"].append(cfg)
 			
 	_project_manager.save_template(template_name, data)
